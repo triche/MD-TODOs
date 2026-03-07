@@ -1,17 +1,20 @@
 """CLI entry point for md-todos.
 
 Commands:
-    extract  — Run TODO extraction (full scan or watch mode).
-    plan     — Generate a GTD plan.
-    status   — Show agent status and open TODO count.
-    install  — Interactive first-time setup.
-    uninstall — Remove launchd agents and optionally all data.
+    extract       — Run TODO extraction (full scan or watch mode).
+    plan          — Generate a GTD plan.
+    plan-dispatch — Auto-detect plan type from current day/time.
+    status        — Show agent status and open TODO count.
+    install       — Interactive first-time setup.
+    uninstall     — Remove launchd agents and optionally all data.
 """
 
 from __future__ import annotations
 
 import shutil
 import subprocess
+import sys
+from datetime import datetime
 from pathlib import Path
 
 import click
@@ -129,6 +132,89 @@ def plan(ctx: click.Context, plan_type: PlanType) -> None:
     click.echo(f"Plan written to {output_path}")
 
 
+# ── plan-dispatch ────────────────────────────────────────────
+
+
+_DAY_NAMES = {
+    0: "monday",
+    1: "tuesday",
+    2: "wednesday",
+    3: "thursday",
+    4: "friday",
+    5: "saturday",
+    6: "sunday",
+}
+
+
+def _resolve_plan_type(now: datetime | None = None) -> PlanType | None:
+    """Determine which plan type to generate based on current day/time.
+
+    Returns None if no plan type matches the current schedule window.
+    Uses a tolerance of ±30 minutes around each scheduled time.
+    """
+    if now is None:
+        now = datetime.now()  # local time is intentional
+
+    day_name = _DAY_NAMES[now.weekday()]
+    current_minutes = now.hour * 60 + now.minute
+    tolerance = 30  # minutes
+
+    # Check most specific schedules first
+    # Weekly plan: Sunday at 18:00
+    if day_name == "sunday" and abs(current_minutes - 18 * 60) <= tolerance:
+        return "weekly-plan"
+
+    # Weekly review: Friday at 15:00
+    if day_name == "friday" and abs(current_minutes - 15 * 60) <= tolerance:
+        return "weekly-review"
+
+    # Afternoon: Mon-Fri at 12:00
+    weekday = day_name in ("monday", "tuesday", "wednesday", "thursday", "friday")
+    if weekday and abs(current_minutes - 12 * 60) <= tolerance:
+        return "afternoon"
+
+    # Morning: Mon-Fri at 06:00
+    if weekday and abs(current_minutes - 6 * 60) <= tolerance:
+        return "morning"
+
+    return None
+
+
+@cli.command("plan-dispatch")
+@click.pass_context
+def plan_dispatch(ctx: click.Context) -> None:
+    """Auto-detect plan type from current day/time and generate it.
+
+    Used by the launchd manager agent. Determines which plan type
+    matches the current schedule window and generates it.
+    """
+    plan_type = _resolve_plan_type()
+    if plan_type is None:
+        click.echo("No plan type matches the current schedule window. Exiting.")
+        return
+
+    config = _load_config(ctx)
+    setup_logging(config.logging.level, config.logging.file)
+
+    from src.ai.factory import create_provider
+    from src.ai.provider import AIProviderAuthError
+    from src.manager.agent import ManagerAgent, PlanGenerationError
+
+    try:
+        provider = create_provider(config.ai)
+    except (AIProviderAuthError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    agent = ManagerAgent(config, provider=provider)
+
+    try:
+        output_path = agent.generate_plan_sync(plan_type)
+    except PlanGenerationError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    click.echo(f"Plan written to {output_path}")
+
+
 # ── status ───────────────────────────────────────────────────
 
 
@@ -208,12 +294,29 @@ def install(ctx: click.Context) -> None:
     click.echo()
     _setup_api_key()
 
-    # 4. Summary
+    # 4. Render and load launchd agents
+    click.echo()
+    _install_launchd_agents(config_path)
+
+    # 5. Run initial full scan
+    click.echo()
+    try:
+        config = load_config(config_path)
+        setup_logging(config.logging.level, config.logging.file)
+
+        from src.extractor.agent import ExtractorAgent
+
+        agent = ExtractorAgent(config, provider=None)
+        open_count = agent.run_full_scan()
+        click.echo(f"✓ Initial scan complete. {open_count} open TODOs found.")
+    except (OSError, ValueError, KeyError) as exc:
+        click.echo(f"⚠ Initial scan failed: {exc}")
+
+    # 6. Summary
     click.echo("\nSetup complete. Next steps:")
-    click.echo(f"  1. Edit {config_path} (set notes_dir and plans_dir)")
-    click.echo("  2. Run `md-todos extract --full` to do an initial scan")
-    click.echo("  3. Run `md-todos plan --type morning` to generate a plan")
-    click.echo("  4. (Phase 8) Run install.sh to configure launchd agents")
+    click.echo(f"  1. Edit {config_path} to customise paths and settings")
+    click.echo("  2. Run `md-todos status` to verify agents are loaded")
+    click.echo("  3. Run `md-todos plan --type morning` to generate a test plan")
 
 
 # ── uninstall ────────────────────────────────────────────────
@@ -342,6 +445,64 @@ def _setup_api_key() -> None:
         click.echo("✓ API key stored in Keychain")
     except KeychainError as exc:
         click.echo(f"⚠ Failed to store API key: {exc}")
+
+
+def _render_plist(template_path: Path, output_path: Path, replacements: dict[str, str]) -> None:
+    """Render a plist template by substituting placeholder tokens."""
+    content = template_path.read_text(encoding="utf-8")
+    for token, value in replacements.items():
+        content = content.replace(token, value)
+    output_path.write_text(content, encoding="utf-8")
+
+
+def _install_launchd_agents(config_path: Path) -> None:
+    """Render plist templates and load launchd agents."""
+    click.echo("Installing launchd agents…")
+
+    launch_agents_dir = Path("~/Library/LaunchAgents").expanduser()
+    launch_agents_dir.mkdir(parents=True, exist_ok=True)
+
+    # Resolve paths for plist rendering
+    venv_python = Path(sys.executable)
+    data_dir = config_path.parent
+    log_dir = data_dir / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    replacements = {
+        "{{PYTHON_PATH}}": str(venv_python),
+        "{{REPO_DIR}}": str(_REPO_DIR),
+        "{{CONFIG_PATH}}": str(config_path),
+        "{{LOG_DIR}}": str(log_dir),
+    }
+
+    for plist_id in _PLIST_IDS:
+        template = _REPO_DIR / "templates" / f"{plist_id}.plist"
+        output = launch_agents_dir / f"{plist_id}.plist"
+
+        if not template.is_file():
+            click.echo(f"  ⚠ Template not found: {template}")
+            continue
+
+        _render_plist(template, output, replacements)
+        click.echo(f"  ✓ Rendered {output}")
+
+        # Unload first if already loaded (idempotent)
+        subprocess.run(
+            ["launchctl", "unload", str(output)],
+            capture_output=True,
+            check=False,
+        )
+        result = subprocess.run(
+            ["launchctl", "load", str(output)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode == 0:
+            click.echo(f"  ✓ Loaded {plist_id}")
+        else:
+            stderr = result.stderr.strip() if result.stderr else "unknown error"
+            click.echo(f"  ⚠ Failed to load {plist_id}: {stderr}")
 
 
 if __name__ == "__main__":

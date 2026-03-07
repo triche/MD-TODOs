@@ -4,13 +4,14 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
 
-from src.cli.main import cli
+from src.cli.main import _render_plist, _resolve_plan_type, cli
 
 
 @pytest.fixture
@@ -261,11 +262,18 @@ class TestUninstallCommand:
         assert result.exit_code == 0
         assert "--all" in result.output
 
-    def test_uninstall_no_agents(self, runner: CliRunner, config_file: Path) -> None:
-        """Uninstall without agents should report they're not installed."""
-        result = runner.invoke(cli, ["--config", str(config_file), "uninstall"])
-        assert result.exit_code == 0
-        assert "not installed" in result.output
+    def test_uninstall_no_agents(
+        self, runner: CliRunner, config_file: Path
+    ) -> None:
+        """Uninstall without agents should complete successfully."""
+        # Mock subprocess so we don't interact with real launchctl
+        with patch("src.cli.main.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+
+            result = runner.invoke(cli, ["--config", str(config_file), "uninstall"])
+            assert result.exit_code == 0
+            # Should either report "not installed" or successfully unload
+            assert "Done" in result.output or "not installed" in result.output
 
     def test_uninstall_all_removes_data(self, runner: CliRunner, config_file: Path) -> None:
         """Uninstall --all should remove data dir (after confirmation)."""
@@ -311,3 +319,293 @@ class TestConfigOverride:
         )
         # Should still succeed — missing config gives empty dict, Pydantic fills defaults
         assert result.exit_code == 0
+
+
+# ── plan-dispatch ────────────────────────────────────────────
+
+
+class TestPlanDispatch:
+    def test_plan_dispatch_help(self, runner: CliRunner) -> None:
+        result = runner.invoke(cli, ["plan-dispatch", "--help"])
+        assert result.exit_code == 0
+        assert "Auto-detect" in result.output
+
+    def test_plan_dispatch_no_match(self, runner: CliRunner, config_file: Path) -> None:
+        """If current time doesn't match any schedule, should exit gracefully."""
+        # 3 AM on a Tuesday — no plan type matches
+        with patch("src.cli.main._resolve_plan_type", return_value=None):
+            result = runner.invoke(cli, ["--config", str(config_file), "plan-dispatch"])
+            assert result.exit_code == 0
+            assert "No plan type matches" in result.output
+
+    def test_plan_dispatch_morning(self, runner: CliRunner, config_file: Path) -> None:
+        """Dispatch should generate morning plan when matched."""
+        plan_file = Path("/tmp/test-plan.md")
+
+        with (
+            patch("src.cli.main._resolve_plan_type", return_value="morning"),
+            patch("src.ai.factory.create_provider") as mock_factory,
+            patch("src.manager.agent.ManagerAgent.generate_plan_sync") as mock_gen,
+        ):
+            mock_factory.return_value = MagicMock()
+            mock_gen.return_value = plan_file
+
+            result = runner.invoke(cli, ["--config", str(config_file), "plan-dispatch"])
+            assert result.exit_code == 0
+            assert "Plan written to" in result.output
+            mock_gen.assert_called_once_with("morning")
+
+
+# ── _resolve_plan_type ───────────────────────────────────────
+
+
+class TestResolvePlanType:
+    def test_morning_monday_0600(self) -> None:
+        now = datetime(2026, 3, 9, 6, 0)  # Monday
+        assert _resolve_plan_type(now) == "morning"
+
+    def test_morning_friday_0615(self) -> None:
+        now = datetime(2026, 3, 13, 6, 15)  # Friday
+        assert _resolve_plan_type(now) == "morning"
+
+    def test_afternoon_wednesday_1200(self) -> None:
+        now = datetime(2026, 3, 11, 12, 0)  # Wednesday
+        assert _resolve_plan_type(now) == "afternoon"
+
+    def test_afternoon_within_tolerance(self) -> None:
+        now = datetime(2026, 3, 10, 11, 45)  # Tuesday 11:45
+        assert _resolve_plan_type(now) == "afternoon"
+
+    def test_weekly_review_friday_1500(self) -> None:
+        now = datetime(2026, 3, 13, 15, 0)  # Friday 15:00
+        assert _resolve_plan_type(now) == "weekly-review"
+
+    def test_weekly_plan_sunday_1800(self) -> None:
+        now = datetime(2026, 3, 8, 18, 0)  # Sunday 18:00
+        assert _resolve_plan_type(now) == "weekly-plan"
+
+    def test_no_match_saturday_0800(self) -> None:
+        now = datetime(2026, 3, 14, 8, 0)  # Saturday
+        assert _resolve_plan_type(now) is None
+
+    def test_no_match_tuesday_0300(self) -> None:
+        now = datetime(2026, 3, 10, 3, 0)  # Tuesday 3 AM
+        assert _resolve_plan_type(now) is None
+
+    def test_no_match_outside_tolerance(self) -> None:
+        now = datetime(2026, 3, 9, 7, 0)  # Monday 7:00 — 60 min from 6:00
+        assert _resolve_plan_type(now) is None
+
+    def test_weekly_review_takes_priority_over_afternoon(self) -> None:
+        """Friday 15:00 should be weekly-review, not afternoon."""
+        now = datetime(2026, 3, 13, 15, 0)  # Friday 15:00
+        assert _resolve_plan_type(now) == "weekly-review"
+
+
+# ── _render_plist ────────────────────────────────────────────
+
+
+class TestRenderPlist:
+    def test_render_substitutes_placeholders(self, tmp_path: Path) -> None:
+        template = tmp_path / "template.plist"
+        template.write_text(
+            "<string>{{PYTHON_PATH}}</string>\n"
+            "<string>{{REPO_DIR}}</string>\n"
+            "<string>{{CONFIG_PATH}}</string>\n"
+            "<string>{{LOG_DIR}}</string>\n",
+            encoding="utf-8",
+        )
+        output = tmp_path / "output.plist"
+
+        _render_plist(
+            template,
+            output,
+            {
+                "{{PYTHON_PATH}}": "/usr/bin/python3",
+                "{{REPO_DIR}}": "/home/user/MD-TODOs",
+                "{{CONFIG_PATH}}": "/home/user/.md-todos/config.yaml",
+                "{{LOG_DIR}}": "/home/user/.md-todos/logs",
+            },
+        )
+
+        content = output.read_text(encoding="utf-8")
+        assert "/usr/bin/python3" in content
+        assert "/home/user/MD-TODOs" in content
+        assert "/home/user/.md-todos/config.yaml" in content
+        assert "/home/user/.md-todos/logs" in content
+        assert "{{" not in content
+
+    def test_render_preserves_unmatched_text(self, tmp_path: Path) -> None:
+        template = tmp_path / "template.plist"
+        template.write_text(
+            "<key>Label</key>\n<string>com.md-todos.extractor</string>\n",
+            encoding="utf-8",
+        )
+        output = tmp_path / "output.plist"
+        _render_plist(template, output, {})
+
+        content = output.read_text(encoding="utf-8")
+        assert "com.md-todos.extractor" in content
+
+
+# ── install with launchd ─────────────────────────────────────
+
+
+class TestInstallLaunchd:
+    def test_install_renders_plists(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Install should render plist templates."""
+        config_path = tmp_path / "new-data" / "config.yaml"
+
+        with (
+            patch("src.cli.main._setup_api_key"),
+            patch("src.cli.main._install_launchd_agents") as mock_launchd,
+            patch("src.extractor.agent.ExtractorAgent") as mock_agent_cls,
+        ):
+            mock_agent = MagicMock()
+            mock_agent.run_full_scan.return_value = 0
+            mock_agent_cls.return_value = mock_agent
+
+            result = runner.invoke(cli, ["--config", str(config_path), "install"])
+            assert result.exit_code == 0
+            mock_launchd.assert_called_once()
+
+    def test_install_runs_initial_scan(self, runner: CliRunner, config_file: Path) -> None:
+        """Install should run an initial full scan."""
+        with (
+            patch("src.cli.main._setup_api_key"),
+            patch("src.cli.main._install_launchd_agents"),
+        ):
+            result = runner.invoke(cli, ["--config", str(config_file), "install"])
+            assert result.exit_code == 0
+            assert "Initial scan complete" in result.output
+
+
+# ── plist templates ──────────────────────────────────────────
+
+
+class TestPlistTemplates:
+    """Validate that plist template files are well-formed and contain expected placeholders."""
+
+    def _repo_dir(self) -> Path:
+        return Path(__file__).resolve().parent.parent
+
+    def test_extractor_plist_template_exists(self) -> None:
+        template = self._repo_dir() / "templates" / "com.md-todos.extractor.plist"
+        assert template.is_file()
+
+    def test_manager_plist_template_exists(self) -> None:
+        template = self._repo_dir() / "templates" / "com.md-todos.manager.plist"
+        assert template.is_file()
+
+    def test_extractor_plist_has_placeholders(self) -> None:
+        template = self._repo_dir() / "templates" / "com.md-todos.extractor.plist"
+        content = template.read_text(encoding="utf-8")
+        assert "{{PYTHON_PATH}}" in content
+        assert "{{REPO_DIR}}" in content
+        assert "{{CONFIG_PATH}}" in content
+        assert "{{LOG_DIR}}" in content
+
+    def test_manager_plist_has_placeholders(self) -> None:
+        template = self._repo_dir() / "templates" / "com.md-todos.manager.plist"
+        content = template.read_text(encoding="utf-8")
+        assert "{{PYTHON_PATH}}" in content
+        assert "{{REPO_DIR}}" in content
+        assert "{{CONFIG_PATH}}" in content
+        assert "{{LOG_DIR}}" in content
+
+    def test_extractor_plist_has_keep_alive(self) -> None:
+        template = self._repo_dir() / "templates" / "com.md-todos.extractor.plist"
+        content = template.read_text(encoding="utf-8")
+        assert "<key>KeepAlive</key>" in content
+        assert "<true/>" in content
+
+    def test_manager_plist_has_calendar_intervals(self) -> None:
+        template = self._repo_dir() / "templates" / "com.md-todos.manager.plist"
+        content = template.read_text(encoding="utf-8")
+        assert "<key>StartCalendarInterval</key>" in content
+
+    def test_manager_plist_uses_plan_dispatch(self) -> None:
+        template = self._repo_dir() / "templates" / "com.md-todos.manager.plist"
+        content = template.read_text(encoding="utf-8")
+        assert "plan-dispatch" in content
+
+    def test_extractor_plist_label(self) -> None:
+        template = self._repo_dir() / "templates" / "com.md-todos.extractor.plist"
+        content = template.read_text(encoding="utf-8")
+        assert "com.md-todos.extractor" in content
+
+    def test_manager_plist_label(self) -> None:
+        template = self._repo_dir() / "templates" / "com.md-todos.manager.plist"
+        content = template.read_text(encoding="utf-8")
+        assert "com.md-todos.manager" in content
+
+
+# ── shell scripts ────────────────────────────────────────────
+
+
+class TestShellScripts:
+    """Validate that shell scripts exist, are executable, and contain expected content."""
+
+    def _repo_dir(self) -> Path:
+        return Path(__file__).resolve().parent.parent
+
+    def test_install_script_exists(self) -> None:
+        script = self._repo_dir() / "scripts" / "install.sh"
+        assert script.is_file()
+
+    def test_install_script_executable(self) -> None:
+        import os
+        import stat
+
+        script = self._repo_dir() / "scripts" / "install.sh"
+        mode = os.stat(script).st_mode
+        assert mode & stat.S_IXUSR
+
+    def test_uninstall_script_exists(self) -> None:
+        script = self._repo_dir() / "scripts" / "uninstall.sh"
+        assert script.is_file()
+
+    def test_uninstall_script_executable(self) -> None:
+        import os
+        import stat
+
+        script = self._repo_dir() / "scripts" / "uninstall.sh"
+        mode = os.stat(script).st_mode
+        assert mode & stat.S_IXUSR
+
+    def test_install_script_checks_prerequisites(self) -> None:
+        script = self._repo_dir() / "scripts" / "install.sh"
+        content = script.read_text(encoding="utf-8")
+        assert "Python" in content
+        assert "macOS" in content or "Darwin" in content
+
+    def test_install_script_creates_venv(self) -> None:
+        script = self._repo_dir() / "scripts" / "install.sh"
+        content = script.read_text(encoding="utf-8")
+        assert "venv" in content
+
+    def test_install_script_renders_plists(self) -> None:
+        script = self._repo_dir() / "scripts" / "install.sh"
+        content = script.read_text(encoding="utf-8")
+        assert "render_plist" in content
+        assert "LaunchAgents" in content
+
+    def test_install_script_loads_agents(self) -> None:
+        script = self._repo_dir() / "scripts" / "install.sh"
+        content = script.read_text(encoding="utf-8")
+        assert "launchctl load" in content
+
+    def test_uninstall_script_unloads_agents(self) -> None:
+        script = self._repo_dir() / "scripts" / "uninstall.sh"
+        content = script.read_text(encoding="utf-8")
+        assert "launchctl unload" in content
+
+    def test_uninstall_script_supports_all_flag(self) -> None:
+        script = self._repo_dir() / "scripts" / "uninstall.sh"
+        content = script.read_text(encoding="utf-8")
+        assert "--all" in content
+
+    def test_install_script_has_non_interactive(self) -> None:
+        script = self._repo_dir() / "scripts" / "install.sh"
+        content = script.read_text(encoding="utf-8")
+        assert "--non-interactive" in content

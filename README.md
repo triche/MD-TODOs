@@ -51,6 +51,12 @@ cd MD-TODOs
 ./scripts/install.sh
 ```
 
+For non-interactive use (CI or scripted setup):
+
+```bash
+./scripts/install.sh --non-interactive --notes-dir ~/notes --plans-dir ~/plans
+```
+
 This will:
 - Check prerequisites (Python 3.12+, macOS)
 - Create a Python virtual environment and install dependencies
@@ -80,6 +86,7 @@ All commands accept a `--config <path>` option to override the default config fi
 | `md-todos plan --type afternoon` | Generate an afternoon plan now |
 | `md-todos plan --type weekly-review` | Generate a weekly review now |
 | `md-todos plan --type weekly-plan` | Generate a weekly plan now |
+| `md-todos plan-dispatch` | Auto-detect plan type from current day/time (used by launchd) |
 | `md-todos install` | Interactive first-time setup |
 | `md-todos uninstall` | Guided teardown of agents |
 | `md-todos uninstall --all` | Full teardown including data directory |
