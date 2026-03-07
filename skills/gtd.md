@@ -228,3 +228,8 @@ When generating Markdown plans, follow these conventions:
 - Include source references as relative file links: `[source](../../notes/2024/06/meeting.md#L42)`.
 - Keep language concise, direct, and actionable — no filler.
 - Use time estimates where possible: `(~15 min)`, `(~2 min)`, `(~1 hr)`.
+- Use contextually appropriate emoji to make plans visually scannable and engaging:
+  - Section headings: 📋 Summary, 🎯 Priorities, ⚡ Quick Wins, 🚧 Blocked, 📅 Deadlines, 🧭 Focus Statement, 🔄 Review, 💡 Creative, 🏆 Wins.
+  - Context tags: 💻 `@computer`, 📱 `@phone`, 🏠 `@home`, 🏢 `@work`, 🛒 `@errands`, 🌍 `@anywhere`.
+  - Status indicators: ✅ completed, ⏳ waiting/blocked, 🔥 urgent, ⭐ important.
+  - Choose emoji that match the meaning of each item — don't repeat the same emoji for everything.
