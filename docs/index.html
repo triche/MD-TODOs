@@ -222,18 +222,21 @@ cd MD-TODOs</code></pre>
 
   <!-- ───────────────────────── CLI Commands ───────────────────────── -->
   <h2>CLI Commands</h2>
+  <p>All commands accept a <code>--config &lt;path&gt;</code> option to override the default config file location (<code>~/.md-todos/config.yaml</code>).</p>
   <table>
     <thead><tr><th>Command</th><th>Description</th></tr></thead>
     <tbody>
-      <tr><td><code>md-todos extract --full</code></td><td>Force a full re-scan of all notes</td></tr>
+      <tr><td><code>md-todos extract</code></td><td>Start the extractor in watch mode (Ctrl+C to stop)</td></tr>
+      <tr><td><code>md-todos extract --full</code></td><td>Force a full re-scan of all notes and exit</td></tr>
       <tr><td><code>md-todos plan --type morning</code></td><td>Generate a morning plan now</td></tr>
       <tr><td><code>md-todos plan --type afternoon</code></td><td>Generate an afternoon plan now</td></tr>
-      <tr><td><code>md-todos plan --type review</code></td><td>Generate a weekly review now</td></tr>
-      <tr><td><code>md-todos plan --type weekly</code></td><td>Generate a weekly plan now</td></tr>
+      <tr><td><code>md-todos plan --type weekly-review</code></td><td>Generate a weekly review now</td></tr>
+      <tr><td><code>md-todos plan --type weekly-plan</code></td><td>Generate a weekly plan now</td></tr>
       <tr><td><code>md-todos install</code></td><td>Interactive first-time setup</td></tr>
       <tr><td><code>md-todos uninstall</code></td><td>Guided teardown of agents</td></tr>
       <tr><td><code>md-todos uninstall --all</code></td><td>Full teardown including data directory</td></tr>
-      <tr><td><code>md-todos status</code></td><td>Show agent status, last run times, TODO count</td></tr>
+      <tr><td><code>md-todos status</code></td><td>Show agent status, store info, and launchd state</td></tr>
+      <tr><td><code>md-todos --version</code></td><td>Show version</td></tr>
     </tbody>
   </table>
 

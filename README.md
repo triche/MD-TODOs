@@ -70,17 +70,21 @@ That's it. The extractor daemon is now watching your notes, and the manager will
 
 ## CLI Commands
 
+All commands accept a `--config <path>` option to override the default config file location (`~/.md-todos/config.yaml`).
+
 | Command | Description |
 |---|---|
-| `md-todos extract --full` | Force a full re-scan of all notes |
+| `md-todos extract` | Start the extractor in watch mode (Ctrl+C to stop) |
+| `md-todos extract --full` | Force a full re-scan of all notes and exit |
 | `md-todos plan --type morning` | Generate a morning plan now |
 | `md-todos plan --type afternoon` | Generate an afternoon plan now |
-| `md-todos plan --type review` | Generate a weekly review now |
-| `md-todos plan --type weekly` | Generate a weekly plan now |
+| `md-todos plan --type weekly-review` | Generate a weekly review now |
+| `md-todos plan --type weekly-plan` | Generate a weekly plan now |
 | `md-todos install` | Interactive first-time setup |
 | `md-todos uninstall` | Guided teardown of agents |
 | `md-todos uninstall --all` | Full teardown including data directory |
-| `md-todos status` | Show agent status, last run times, TODO count |
+| `md-todos status` | Show agent status, store info, and launchd state |
+| `md-todos --version` | Show version |
 
 ## Plan Schedule
 
