@@ -262,9 +262,7 @@ class TestUninstallCommand:
         assert result.exit_code == 0
         assert "--all" in result.output
 
-    def test_uninstall_no_agents(
-        self, runner: CliRunner, config_file: Path
-    ) -> None:
+    def test_uninstall_no_agents(self, runner: CliRunner, config_file: Path) -> None:
         """Uninstall without agents should complete successfully."""
         # Mock subprocess so we don't interact with real launchctl
         with patch("src.cli.main.subprocess.run") as mock_run:
