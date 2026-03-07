@@ -202,6 +202,8 @@ cd MD-TODOs</code></pre>
 
   <h3>2. Run the install script</h3>
   <pre><code>./scripts/install.sh</code></pre>
+  <p>For non-interactive use (CI or scripted setup):</p>
+  <pre><code>./scripts/install.sh --non-interactive --notes-dir ~/notes --plans-dir ~/plans</code></pre>
   <p>This will:</p>
   <ul>
     <li>Check prerequisites (Python 3.12+, macOS)</li>
@@ -232,6 +234,7 @@ cd MD-TODOs</code></pre>
       <tr><td><code>md-todos plan --type afternoon</code></td><td>Generate an afternoon plan now</td></tr>
       <tr><td><code>md-todos plan --type weekly-review</code></td><td>Generate a weekly review now</td></tr>
       <tr><td><code>md-todos plan --type weekly-plan</code></td><td>Generate a weekly plan now</td></tr>
+      <tr><td><code>md-todos plan-dispatch</code></td><td>Auto-detect plan type from current day/time (used by launchd)</td></tr>
       <tr><td><code>md-todos install</code></td><td>Interactive first-time setup</td></tr>
       <tr><td><code>md-todos uninstall</code></td><td>Guided teardown of agents</td></tr>
       <tr><td><code>md-todos uninstall --all</code></td><td>Full teardown including data directory</td></tr>

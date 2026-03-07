@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.md-todos.manager</string>
+
+    <!-- plan-dispatch auto-detects the correct plan type from current day/time -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{PYTHON_PATH}}</string>
+        <string>-m</string>
+        <string>src.cli.main</string>
+        <string>--config</string>
+        <string>{{CONFIG_PATH}}</string>
+        <string>plan-dispatch</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>{{REPO_DIR}}</string>
+
+    <!-- Schedule: Morning (Mon-Fri 06:00), Afternoon (Mon-Fri 12:00),
+         Weekly Review (Fri 15:00), Weekly Plan (Sun 18:00).
+         launchd Weekday: 0=Sunday, 1=Monday, ..., 5=Friday, 6=Saturday -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <!-- Morning plan: Monday-Friday at 06:00 -->
+        <dict>
+            <key>Weekday</key> <integer>1</integer>
+            <key>Hour</key>    <integer>6</integer>
+            <key>Minute</key>  <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key> <integer>2</integer>
+            <key>Hour</key>    <integer>6</integer>
+            <key>Minute</key>  <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key> <integer>3</integer>
+            <key>Hour</key>    <integer>6</integer>
+            <key>Minute</key>  <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key> <integer>4</integer>
+            <key>Hour</key>    <integer>6</integer>
+            <key>Minute</key>  <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key> <integer>5</integer>
+            <key>Hour</key>    <integer>6</integer>
+            <key>Minute</key>  <integer>0</integer>
+        </dict>
+        <!-- Afternoon plan: Monday-Friday at 12:00 -->
+        <dict>
+            <key>Weekday</key> <integer>1</integer>
+            <key>Hour</key>    <integer>12</integer>
+            <key>Minute</key>  <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key> <integer>2</integer>
+            <key>Hour</key>    <integer>12</integer>
+            <key>Minute</key>  <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key> <integer>3</integer>
+            <key>Hour</key>    <integer>12</integer>
+            <key>Minute</key>  <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key> <integer>4</integer>
+            <key>Hour</key>    <integer>12</integer>
+            <key>Minute</key>  <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key> <integer>5</integer>
+            <key>Hour</key>    <integer>12</integer>
+            <key>Minute</key>  <integer>0</integer>
+        </dict>
+        <!-- Weekly review: Friday at 15:00 -->
+        <dict>
+            <key>Weekday</key> <integer>5</integer>
+            <key>Hour</key>    <integer>15</integer>
+            <key>Minute</key>  <integer>0</integer>
+        </dict>
+        <!-- Weekly plan: Sunday at 18:00 -->
+        <dict>
+            <key>Weekday</key> <integer>0</integer>
+            <key>Hour</key>    <integer>18</integer>
+            <key>Minute</key>  <integer>0</integer>
+        </dict>
+    </array>
+
+    <key>StandardOutPath</key>
+    <string>{{LOG_DIR}}/manager-stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>{{LOG_DIR}}/manager-stderr.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PYTHONPATH</key>
+        <string>{{REPO_DIR}}</string>
+    </dict>
+</dict>
+</plist>
