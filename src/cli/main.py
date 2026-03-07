@@ -487,22 +487,25 @@ def _install_launchd_agents(config_path: Path) -> None:
         click.echo(f"  ✓ Rendered {output}")
 
         # Unload first if already loaded (idempotent)
-        subprocess.run(
-            ["launchctl", "unload", str(output)],
-            capture_output=True,
-            check=False,
-        )
-        result = subprocess.run(
-            ["launchctl", "load", str(output)],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if result.returncode == 0:
-            click.echo(f"  ✓ Loaded {plist_id}")
-        else:
-            stderr = result.stderr.strip() if result.stderr else "unknown error"
-            click.echo(f"  ⚠ Failed to load {plist_id}: {stderr}")
+        try:
+            subprocess.run(
+                ["launchctl", "unload", str(output)],
+                capture_output=True,
+                check=False,
+            )
+            result = subprocess.run(
+                ["launchctl", "load", str(output)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode == 0:
+                click.echo(f"  ✓ Loaded {plist_id}")
+            else:
+                stderr = result.stderr.strip() if result.stderr else "unknown error"
+                click.echo(f"  ⚠ Failed to load {plist_id}: {stderr}")
+        except FileNotFoundError:
+            click.echo(f"  ⚠ launchctl not found — skipping agent loading for {plist_id}")
 
 
 if __name__ == "__main__":

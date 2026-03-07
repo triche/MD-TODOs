@@ -229,7 +229,10 @@ class TestInstallCommand:
         """Install should create the data directory if missing."""
         config_path = tmp_path / "new-data" / "config.yaml"
 
-        with patch("src.cli.main._setup_api_key"):
+        with (
+            patch("src.cli.main._setup_api_key"),
+            patch("src.cli.main._install_launchd_agents"),
+        ):
             result = runner.invoke(cli, ["--config", str(config_path), "install"])
             assert result.exit_code == 0
             assert (tmp_path / "new-data").is_dir()
@@ -239,7 +242,10 @@ class TestInstallCommand:
         """Install should copy the config template."""
         config_path = tmp_path / "new-data" / "config.yaml"
 
-        with patch("src.cli.main._setup_api_key"):
+        with (
+            patch("src.cli.main._setup_api_key"),
+            patch("src.cli.main._install_launchd_agents"),
+        ):
             result = runner.invoke(cli, ["--config", str(config_path), "install"])
             assert result.exit_code == 0
             # Config was created from template (if template exists in the repo)
@@ -247,7 +253,10 @@ class TestInstallCommand:
 
     def test_install_existing_data_dir(self, runner: CliRunner, config_file: Path) -> None:
         """Install should note when data dir already exists."""
-        with patch("src.cli.main._setup_api_key"):
+        with (
+            patch("src.cli.main._setup_api_key"),
+            patch("src.cli.main._install_launchd_agents"),
+        ):
             result = runner.invoke(cli, ["--config", str(config_file), "install"])
             assert result.exit_code == 0
             assert "exists" in result.output.lower()
