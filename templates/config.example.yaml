@@ -1,0 +1,85 @@
+# ─────────────────────────────────────────────────────────────
+# MD-TODOs Configuration
+# ─────────────────────────────────────────────────────────────
+#
+# Copy this file to ~/.md-todos/config.yaml and customise.
+# All paths support ~ expansion.
+#
+# Resolution order (highest priority first):
+#   1. CLI flags
+#   2. Environment variables (MD_TODOS_* prefix)
+#   3. This config file
+#   4. Built-in defaults
+# ─────────────────────────────────────────────────────────────
+
+# ── Paths ────────────────────────────────────────────────────
+# Your Markdown notes directory (read-only — MD-TODOs never modifies it).
+notes_dir: ~/notes
+
+# Where generated GTD plans are written.
+plans_dir: ~/plans
+
+# Internal data root — store, logs, and this config file live here.
+data_dir: ~/.md-todos
+
+# Path to the TODO store JSON file.
+store_path: ~/.md-todos/store/todos.json
+
+# Path to the GTD skills file (ships with the repo).
+# The installer will set this to the absolute path of your clone.
+skills_path: skills/gtd.md
+
+# ── AI Provider ──────────────────────────────────────────────
+ai:
+  # Provider name. Currently only "openai" is implemented.
+  provider: openai
+
+  # Model names for different tasks.
+  models:
+    # Fast/cheap model for TODO extraction and classification.
+    extraction: gpt-5-mini
+    # More capable model for plan generation.
+    generation: gpt-5.2
+
+  # Maximum tokens for AI completion responses.
+  max_tokens: 4096
+
+  # Sampling temperature (0.0 = deterministic, 2.0 = very creative).
+  temperature: 0.3
+
+# ── Extractor Agent ──────────────────────────────────────────
+extractor:
+  # Run in watch mode (live file monitoring via FSEvents).
+  watch: true
+
+  # Glob pattern for Markdown files to scan.
+  scan_glob: "**/*.md"
+
+  # Use AI for implicit TODO detection in prose (requires API key).
+  implicit_detection: true
+
+# ── Manager Agent ────────────────────────────────────────────
+manager:
+  schedules:
+    # Morning plan generation time (HH:MM, Mon-Fri).
+    morning: "06:00"
+
+    # Afternoon plan generation time (HH:MM, Mon-Fri).
+    afternoon: "12:00"
+
+    # Weekly review: day and time.
+    weekly_review_day: friday
+    weekly_review_time: "15:00"
+
+    # Weekly plan: day and time.
+    weekly_plan_day: sunday
+    weekly_plan_time: "18:00"
+
+# ── Logging ──────────────────────────────────────────────────
+logging:
+  # Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL.
+  # Note: TODO content is only logged at DEBUG level for privacy.
+  level: INFO
+
+  # Path to the log file.
+  file: ~/.md-todos/logs/md-todos.log
