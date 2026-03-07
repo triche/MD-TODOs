@@ -68,6 +68,9 @@ MD-TODOs/
 - Use `pathlib.Path` for all file system operations.
 - Follow PEP 8. Use `ruff` for linting and formatting.
 
+### Code Quality Gate
+- **Always keep working until all source code in `src/` and `tests/` is completely free of lint errors and warnings.** After any code change, run `ruff check src/ tests/`, `ruff format --check src/ tests/`, and `pyright src/` and resolve every issue before considering the task complete. Do not leave behind unused imports, protected-member access warnings, unused variables, formatting violations, or type errors.
+
 ### TODO Extractor
 - Regex detection runs first (cheap). Only paragraphs not captured by regex go to the LLM.
 - The extractor is the **sole writer** to `store/todos.json`. Use file locking (`fcntl.flock`).

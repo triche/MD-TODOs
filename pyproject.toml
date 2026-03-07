@@ -27,6 +27,7 @@ dependencies = [
 dev = [
     "pyright>=1.1",
     "pytest>=8.0",
+    "pytest-asyncio>=0.24",
     "pytest-cov>=5.0",
     "ruff>=0.4",
 ]
@@ -47,6 +48,10 @@ select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "RUF"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+asyncio_mode = "auto"
+markers = [
+    "asyncio: mark a test as an async test (auto mode)",
+]
 
 [tool.ruff.format]
 quote-style = "double"
