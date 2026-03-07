@@ -64,7 +64,7 @@ class TestOpenAIProviderComplete:
 
         call_kwargs = mock_create.call_args
         assert call_kwargs.kwargs["model"] == "gpt-5.2"
-        assert call_kwargs.kwargs["max_tokens"] == 1024
+        assert call_kwargs.kwargs["max_completion_tokens"] == 1024
         assert call_kwargs.kwargs["temperature"] == 0.9
 
     @pytest.mark.asyncio

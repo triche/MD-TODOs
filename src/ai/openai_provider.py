@@ -70,7 +70,7 @@ class OpenAIProvider(AIProvider):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                max_tokens=opts.max_tokens,
+                max_completion_tokens=opts.max_tokens,
                 temperature=opts.temperature,
                 stop=opts.stop or None,
             )
