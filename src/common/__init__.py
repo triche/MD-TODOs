@@ -11,6 +11,7 @@ from src.common.config_models import (
     ManagerSchedulesConfig,
 )
 from src.common.logging import get_logger, setup_logging
+from src.common.skills import SkillsFileError, load_skills
 from src.common.todo_models import TodoItem
 
 __all__ = [
@@ -21,8 +22,10 @@ __all__ = [
     "LoggingConfig",
     "ManagerConfig",
     "ManagerSchedulesConfig",
+    "SkillsFileError",
     "TodoItem",
     "get_logger",
     "load_config",
+    "load_skills",
     "setup_logging",
 ]
