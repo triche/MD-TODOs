@@ -12,42 +12,34 @@ from src.common.config_models import AppConfig, ExtractorConfig
 from src.extractor.agent import ExtractorAgent
 
 
-@pytest.fixture
-def notes_dir(tmp_path: Path) -> Path:
-    d = tmp_path / "notes"
-    d.mkdir()
-    return d
-
-
-@pytest.fixture
-def store_path(tmp_path: Path) -> Path:
-    return tmp_path / "store" / "todos.json"
-
-
-@pytest.fixture
-def config(tmp_path: Path, notes_dir: Path, store_path: Path) -> AppConfig:
-    return AppConfig(
-        notes_dir=notes_dir,
-        plans_dir=tmp_path / "plans",
-        data_dir=tmp_path,
-        store_path=store_path,
-        extractor=ExtractorConfig(watch=True, scan_glob="**/*.md", implicit_detection=False),
-    )
-
-
-@pytest.fixture
-def config_with_ai(config: AppConfig) -> AppConfig:
-    return config.model_copy(update={"extractor": ExtractorConfig(implicit_detection=True)})
-
-
-def _write_md(notes_dir: Path, name: str, content: str) -> Path:
-    p = notes_dir / name
+def _write_md(target_dir: Path, name: str, content: str) -> Path:
+    p = target_dir / name
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(content, encoding="utf-8")
     return p
 
 
 class TestFullScan:
+    @pytest.fixture
+    def notes_dir(self, tmp_path: Path) -> Path:
+        d = tmp_path / "notes"
+        d.mkdir()
+        return d
+
+    @pytest.fixture
+    def store_path(self, tmp_path: Path) -> Path:
+        return tmp_path / "store" / "todos.json"
+
+    @pytest.fixture
+    def config(self, tmp_path: Path, notes_dir: Path, store_path: Path) -> AppConfig:
+        return AppConfig(
+            notes_dir=notes_dir,
+            plans_dir=tmp_path / "plans",
+            data_dir=tmp_path,
+            store_path=store_path,
+            extractor=ExtractorConfig(watch=True, scan_glob="**/*.md", implicit_detection=False),
+        )
+
     def test_scan_empty_directory(self, config: AppConfig) -> None:
         agent = ExtractorAgent(config)
         total = agent.run_full_scan()
@@ -111,9 +103,7 @@ class TestFullScan:
         total = agent.run_full_scan()
         assert total == 1
 
-    def test_scan_preserves_store(
-        self, config: AppConfig, notes_dir: Path, store_path: Path
-    ) -> None:
+    def test_scan_preserves_store(self, config: AppConfig, notes_dir: Path) -> None:
         """Full scan saves to disk and can be reloaded."""
         _write_md(notes_dir, "test.md", "- [ ] Persistent task\n")
         agent = ExtractorAgent(config)
@@ -126,6 +116,30 @@ class TestFullScan:
 
 
 class TestFullScanWithAI:
+    @pytest.fixture
+    def notes_dir(self, tmp_path: Path) -> Path:
+        d = tmp_path / "notes"
+        d.mkdir()
+        return d
+
+    @pytest.fixture
+    def store_path(self, tmp_path: Path) -> Path:
+        return tmp_path / "store" / "todos.json"
+
+    @pytest.fixture
+    def config(self, tmp_path: Path, notes_dir: Path, store_path: Path) -> AppConfig:
+        return AppConfig(
+            notes_dir=notes_dir,
+            plans_dir=tmp_path / "plans",
+            data_dir=tmp_path,
+            store_path=store_path,
+            extractor=ExtractorConfig(watch=True, scan_glob="**/*.md", implicit_detection=False),
+        )
+
+    @pytest.fixture
+    def config_with_ai(self, config: AppConfig) -> AppConfig:
+        return config.model_copy(update={"extractor": ExtractorConfig(implicit_detection=True)})
+
     @pytest.fixture
     def mock_provider(self) -> AsyncMock:
         provider = AsyncMock()
@@ -158,6 +172,26 @@ class TestFullScanWithAI:
 
 class TestIntegrationCreateModifyDelete:
     """Integration test: create, modify, and delete files, verify store state."""
+
+    @pytest.fixture
+    def notes_dir(self, tmp_path: Path) -> Path:
+        d = tmp_path / "notes"
+        d.mkdir()
+        return d
+
+    @pytest.fixture
+    def store_path(self, tmp_path: Path) -> Path:
+        return tmp_path / "store" / "todos.json"
+
+    @pytest.fixture
+    def config(self, tmp_path: Path, notes_dir: Path, store_path: Path) -> AppConfig:
+        return AppConfig(
+            notes_dir=notes_dir,
+            plans_dir=tmp_path / "plans",
+            data_dir=tmp_path,
+            store_path=store_path,
+            extractor=ExtractorConfig(watch=True, scan_glob="**/*.md", implicit_detection=False),
+        )
 
     def test_create_modify_delete_cycle(self, config: AppConfig, notes_dir: Path) -> None:
         agent = ExtractorAgent(config)
@@ -208,6 +242,26 @@ class TestIntegrationCreateModifyDelete:
 class TestWatchMode:
     """Test that the agent's watch mode detects file changes in real time."""
 
+    @pytest.fixture
+    def notes_dir(self, tmp_path: Path) -> Path:
+        d = tmp_path / "notes"
+        d.mkdir()
+        return d
+
+    @pytest.fixture
+    def store_path(self, tmp_path: Path) -> Path:
+        return tmp_path / "store" / "todos.json"
+
+    @pytest.fixture
+    def config(self, tmp_path: Path, notes_dir: Path, store_path: Path) -> AppConfig:
+        return AppConfig(
+            notes_dir=notes_dir,
+            plans_dir=tmp_path / "plans",
+            data_dir=tmp_path,
+            store_path=store_path,
+            extractor=ExtractorConfig(watch=True, scan_glob="**/*.md", implicit_detection=False),
+        )
+
     def test_watcher_detects_new_file(self, config: AppConfig, notes_dir: Path) -> None:
         agent = ExtractorAgent(config)
         agent.run_full_scan()
@@ -218,8 +272,8 @@ class TestWatchMode:
         watcher = NotesWatcher(
             notes_dir=agent.notes_dir,
             scan_glob=config.extractor.scan_glob,
-            on_file_changed=agent._handle_file_changed,
-            on_file_deleted=agent._handle_file_deleted,
+            on_file_changed=agent._handle_file_changed,  # pylint: disable=protected-access
+            on_file_deleted=agent._handle_file_deleted,  # pylint: disable=protected-access
         )
         watcher.start()
         try:
