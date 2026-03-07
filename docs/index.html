@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MD-TODOs — AI-Powered TODO Extraction &amp; GTD Planning</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #1a1a2e;
+      --accent: #4361ee;
+      --accent-light: #eef0ff;
+      --border: #e0e0e0;
+      --code-bg: #f5f5f7;
+      --muted: #6c6c80;
+      --success: #2d6a4f;
+      --warning: #e76f51;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f0f1a;
+        --fg: #e0e0ec;
+        --accent: #7b8cff;
+        --accent-light: #1a1a2e;
+        --border: #2a2a3e;
+        --code-bg: #16162a;
+        --muted: #9898ac;
+        --success: #52b788;
+        --warning: #f4a261;
+      }
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      line-height: 1.7;
+      max-width: 52rem;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+    }
+
+    h1 { font-size: 2.2rem; margin-bottom: 0.25rem; }
+    h2 { font-size: 1.5rem; margin-top: 2.5rem; margin-bottom: 0.75rem; border-bottom: 2px solid var(--border); padding-bottom: 0.3rem; }
+    h3 { font-size: 1.15rem; margin-top: 1.75rem; margin-bottom: 0.5rem; }
+    p { margin-bottom: 0.9rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .tagline { color: var(--muted); font-size: 1.1rem; margin-bottom: 1.5rem; }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+      gap: 1rem;
+      margin: 1rem 0 1.5rem;
+    }
+    .feature {
+      background: var(--accent-light);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.2rem;
+    }
+    .feature strong { display: block; margin-bottom: 0.3rem; }
+
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem 1.2rem;
+      overflow-x: auto;
+      font-size: 0.88rem;
+      line-height: 1.5;
+      margin-bottom: 1rem;
+    }
+    code {
+      font-family: "SF Mono", "Fira Code", "Cascadia Code", Menlo, monospace;
+      font-size: 0.88em;
+      background: var(--code-bg);
+      padding: 0.15em 0.35em;
+      border-radius: 4px;
+    }
+    pre code { background: none; padding: 0; }
+
+    table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
+    th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); }
+    th { font-weight: 600; font-size: 0.9rem; color: var(--muted); }
+
+    ul, ol { margin-left: 1.5rem; margin-bottom: 0.9rem; }
+    li { margin-bottom: 0.3rem; }
+
+    .diagram {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.2rem;
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      margin-bottom: 1rem;
+      white-space: pre;
+      overflow-x: auto;
+    }
+
+    footer {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>MD-TODOs</h1>
+  <p class="tagline">AI-powered TODO extraction and GTD planning from your Markdown notes.</p>
+
+  <p>
+    MD-TODOs is a local macOS framework that watches your Markdown notes, automatically extracts
+    TODOs and action items, and generates prioritized daily and weekly plans using the
+    <strong>Getting Things Done (GTD)</strong> methodology&nbsp;&mdash; all powered by AI.
+  </p>
+
+  <!-- ───────────────────────── Features ───────────────────────── -->
+  <h2>Features</h2>
+  <div class="features">
+    <div class="feature">
+      <strong>Automatic TODO Detection</strong>
+      Finds explicit TODOs (<code>- [ ]</code>, <code>TODO:</code>, <code>FIXME:</code>) via regex
+      and discovers implicit action items in prose via AI.
+    </div>
+    <div class="feature">
+      <strong>Live File Watching</strong>
+      Monitors your notes directory in real time using macOS FSEvents.
+      Changes are processed instantly.
+    </div>
+    <div class="feature">
+      <strong>GTD-Based Planning</strong>
+      Generates structured Markdown plans: morning priorities, afternoon quick-wins,
+      Friday weekly reviews, and Sunday weekly plans.
+    </div>
+    <div class="feature">
+      <strong>Fully Local</strong>
+      Runs entirely on your Mac. Notes never leave your machine except for
+      AI API calls to your configured provider.
+    </div>
+    <div class="feature">
+      <strong>Secure</strong>
+      API keys stored in macOS Keychain. The repo is public;
+      all personal data lives outside it.
+    </div>
+    <div class="feature">
+      <strong>Swappable AI</strong>
+      Built on an AI provider abstraction. Ships with OpenAI;
+      swap by adding an implementation and updating config.
+    </div>
+  </div>
+
+  <!-- ───────────────────────── How It Works ───────────────────────── -->
+  <h2>How It Works</h2>
+  <p>MD-TODOs runs two independent agents:</p>
+
+  <table>
+    <thead><tr><th>Agent</th><th>Role</th><th>Runs As</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>TODO Extractor</strong></td>
+        <td>Watches <code>notes/</code> for changes, extracts TODOs (regex + AI), persists to a JSON store</td>
+        <td>Long-running <code>launchd</code> daemon</td>
+      </tr>
+      <tr>
+        <td><strong>TODO Manager</strong></td>
+        <td>Reads open TODOs, applies GTD methodology via AI, writes prioritized Markdown plans</td>
+        <td>Scheduled <code>launchd</code> jobs</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="diagram">Your Markdown Notes ──→ TODO Extractor ──→ TODO Store (JSON)
+                                                    │
+                         GTD Skills File ──→ TODO Manager ──→ Markdown Plans</div>
+
+  <!-- ───────────────────────── Requirements ───────────────────────── -->
+  <h2>Requirements</h2>
+  <ul>
+    <li>macOS 13+ (Ventura or later)</li>
+    <li>Python 3.12+</li>
+    <li>An OpenAI API key (or compatible provider)</li>
+    <li><a href="https://docs.astral.sh/uv/">uv</a> (recommended) or <code>pip</code></li>
+  </ul>
+
+  <!-- ───────────────────────── Quick Start ───────────────────────── -->
+  <h2>Quick Start</h2>
+
+  <h3>1. Clone the repo</h3>
+  <pre><code>git clone https://github.com/triche/MD-TODOs.git
+cd MD-TODOs</code></pre>
+
+  <h3>2. Run the install script</h3>
+  <pre><code>./scripts/install.sh</code></pre>
+  <p>This will:</p>
+  <ul>
+    <li>Check prerequisites (Python 3.12+, macOS)</li>
+    <li>Create a Python virtual environment and install dependencies</li>
+    <li>Set up the data directory (<code>~/.md-todos/</code>)</li>
+    <li>Generate your <code>config.yaml</code> from the template</li>
+    <li>Store your OpenAI API key in macOS Keychain</li>
+    <li>Install and load <code>launchd</code> agents for both the extractor and manager</li>
+    <li>Run an initial full scan of your notes</li>
+  </ul>
+
+  <h3>3. Verify</h3>
+  <pre><code>md-todos status</code></pre>
+  <p>
+    That's it. The extractor daemon is now watching your notes, and the manager will generate
+    plans on schedule.
+  </p>
+
+  <!-- ───────────────────────── CLI Commands ───────────────────────── -->
+  <h2>CLI Commands</h2>
+  <table>
+    <thead><tr><th>Command</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>md-todos extract --full</code></td><td>Force a full re-scan of all notes</td></tr>
+      <tr><td><code>md-todos plan --type morning</code></td><td>Generate a morning plan now</td></tr>
+      <tr><td><code>md-todos plan --type afternoon</code></td><td>Generate an afternoon plan now</td></tr>
+      <tr><td><code>md-todos plan --type review</code></td><td>Generate a weekly review now</td></tr>
+      <tr><td><code>md-todos plan --type weekly</code></td><td>Generate a weekly plan now</td></tr>
+      <tr><td><code>md-todos install</code></td><td>Interactive first-time setup</td></tr>
+      <tr><td><code>md-todos uninstall</code></td><td>Guided teardown of agents</td></tr>
+      <tr><td><code>md-todos uninstall --all</code></td><td>Full teardown including data directory</td></tr>
+      <tr><td><code>md-todos status</code></td><td>Show agent status, last run times, TODO count</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ───────────────────────── Plan Schedule ───────────────────────── -->
+  <h2>Plan Schedule</h2>
+  <table>
+    <thead><tr><th>Plan</th><th>When</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>Morning plan</td><td>6:00 AM, Mon–Fri</td><td>Prioritize the day ahead</td></tr>
+      <tr><td>Afternoon plan</td><td>12:00 PM, Mon–Fri</td><td>Re-triage; surface quick wins</td></tr>
+      <tr><td>Weekly review</td><td>3:00 PM, Friday</td><td>Reflect on the week</td></tr>
+      <tr><td>Weekly plan</td><td>6:00 PM, Sunday</td><td>Plan the coming week</td></tr>
+    </tbody>
+  </table>
+
+  <p>Plans are written to your configured <code>plans_dir</code> in <code>YYYY/MM/</code> subdirectories:</p>
+  <pre><code>~/plans/
+  2024/
+    06/
+      2024-06-10-morning-plan.md
+      2024-06-10-afternoon-plan.md
+      2024-06-14-weekly-review.md
+      2024-06-16-weekly-plan.md</code></pre>
+
+  <!-- ───────────────────────── Configuration ───────────────────────── -->
+  <h2>Configuration</h2>
+  <p>
+    Runtime configuration lives at <code>~/.md-todos/config.yaml</code> (created during install
+    from <code>templates/config.example.yaml</code>). Key settings:
+  </p>
+  <pre><code>notes_dir: ~/notes                          # Your Markdown notes (read-only)
+plans_dir: ~/plans                          # Where plans are written
+data_dir: ~/.md-todos                       # Store, logs, config
+store_path: ~/.md-todos/store/todos.json    # TODO store
+
+ai:
+  provider: openai
+  models:
+    extraction: gpt-5-mini       # Fast/cheap for TODO detection
+    generation: gpt-5.2          # Capable for plan generation
+  max_tokens: 4096
+  temperature: 0.3
+
+extractor:
+  watch: true
+  scan_glob: "**/*.md"
+  implicit_detection: true       # AI-based implicit TODO detection
+
+manager:
+  schedules:
+    morning: "06:00"
+    afternoon: "12:00"
+    weekly_review_day: friday
+    weekly_review_time: "15:00"
+    weekly_plan_day: sunday
+    weekly_plan_time: "18:00"
+
+logging:
+  level: INFO
+  file: ~/.md-todos/logs/md-todos.log</code></pre>
+
+  <p><strong>Config resolution order:</strong> CLI flags → environment variables → <code>config.yaml</code> → built-in defaults.</p>
+
+  <!-- ───────────────────────── Architecture ───────────────────────── -->
+  <h2>Architecture</h2>
+
+  <h3>Directory Separation</h3>
+  <p>The repo contains only source code and templates. All personal data lives outside the repo:</p>
+  <pre><code>MD-TODOs/                        ← repo (public on GitHub)
+  src/                           ← agent code, AI provider, CLI
+  skills/gtd.md                  ← GTD knowledge file
+  templates/                     ← config + launchd plist templates
+  scripts/                       ← install/uninstall scripts
+  tests/
+  docs/
+
+~/.md-todos/                     ← user data (never committed)
+  config.yaml
+  store/todos.json
+  logs/md-todos.log
+
+~/notes/                         ← your Markdown notes (read-only)
+~/plans/                         ← generated GTD plans</code></pre>
+
+  <h3>TODO Detection</h3>
+  <p>The extractor uses a layered approach:</p>
+  <ol>
+    <li><strong>Regex</strong> (fast, free) — catches <code>- [ ] …</code>, <code>TODO:</code>, <code>FIXME:</code>, <code>ACTION:</code> patterns.</li>
+    <li><strong>AI classification</strong> (targeted) — only paragraphs not captured by regex are sent to the LLM for implicit action item detection.</li>
+  </ol>
+  <p>This keeps API costs low while still catching buried action items in prose.</p>
+
+  <h3>AI Provider Abstraction</h3>
+  <p>All AI calls go through a provider interface:</p>
+  <pre><code>AIProvider
+  ├── complete(system_prompt, user_prompt, options) → str
+  └── classify(text, categories) → str</code></pre>
+  <p>
+    Ships with an OpenAI implementation. Swap providers by implementing the interface
+    and updating <code>config.yaml</code>.
+  </p>
+
+  <h3>GTD Skills File</h3>
+  <p>
+    GTD methodology is encoded in <code>skills/gtd.md</code>, not in code. This file is injected
+    into the Manager agent's LLM system prompt. To refine GTD behavior, edit the skills
+    file&nbsp;&mdash; no code changes required.
+  </p>
+
+  <!-- ───────────────────────── Security ───────────────────────── -->
+  <h2>Security</h2>
+  <ul>
+    <li><strong>API keys</strong> are stored in macOS Keychain only — never in config files, env vars, or source code.</li>
+    <li><strong>The repo is public.</strong> <code>.gitignore</code> excludes <code>config.yaml</code>, <code>store/</code>, <code>plans/</code>, <code>notes/</code>, <code>logs/</code>, rendered <code>.plist</code> files, and <code>.env</code>.</li>
+    <li><strong>Notes are read-only.</strong> The framework never modifies files in your notes directory.</li>
+    <li><strong>Local processing.</strong> Note content is only sent to the configured AI provider API; no other third-party services are involved.</li>
+  </ul>
+
+  <!-- ───────────────────────── Uninstalling ───────────────────────── -->
+  <h2>Uninstalling</h2>
+  <p>Guided teardown:</p>
+  <pre><code>md-todos uninstall</code></pre>
+  <p>Or use the shell script:</p>
+  <pre><code>./scripts/uninstall.sh</code></pre>
+  <p>
+    This will unload <code>launchd</code> agents, remove plist files, and optionally remove
+    the <code>~/.md-todos/</code> data directory and Keychain entry.
+  </p>
+
+  <!-- ───────────────────────── Tech Stack ───────────────────────── -->
+  <h2>Technology Stack</h2>
+  <table>
+    <thead><tr><th>Component</th><th>Choice</th></tr></thead>
+    <tbody>
+      <tr><td>Language</td><td>Python 3.12+</td></tr>
+      <tr><td>File watcher</td><td><code>watchdog</code> (FSEvents on macOS)</td></tr>
+      <tr><td>Markdown parsing</td><td><code>markdown-it-py</code> / regex</td></tr>
+      <tr><td>AI SDK</td><td><code>openai</code> Python package</td></tr>
+      <tr><td>Config</td><td><code>PyYAML</code> + <code>pydantic</code></td></tr>
+      <tr><td>Store</td><td>JSON file (<code>todos.json</code>)</td></tr>
+      <tr><td>Scheduling</td><td>macOS <code>launchd</code></td></tr>
+      <tr><td>Packaging</td><td><code>uv</code> or <code>pip</code> + <code>venv</code></td></tr>
+      <tr><td>Secrets</td><td>macOS Keychain</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ───────────────────────── Docs ───────────────────────── -->
+  <h2>Project Documentation</h2>
+  <ul>
+    <li><a href="theory-of-operation.md">Theory of Operation</a> — Problem statement and requirements</li>
+    <li><a href="proposed-solution.md">Proposed Solution</a> — Detailed architecture and development plan</li>
+  </ul>
+
+  <!-- ───────────────────────── Footer ───────────────────────── -->
+  <footer>
+    <p><a href="https://github.com/triche/MD-TODOs">MD-TODOs on GitHub</a> · MIT License © 2026 Taylor L. Riché</p>
+  </footer>
+
+</body>
+</html>

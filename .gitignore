@@ -1,0 +1,50 @@
+# ──────────────────────────────────────────────
+# MD-TODOs .gitignore
+# ──────────────────────────────────────────────
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+*.whl
+
+# ── Virtual environment ──
+.venv/
+venv/
+env/
+
+# ── User data (lives outside repo, but exclude just in case) ──
+config.yaml
+store/
+plans/
+notes/
+logs/
+
+# ── Rendered launchd plists (contain user-specific paths) ──
+*.plist
+!templates/*.plist
+
+# ── Secrets & environment ──
+.env
+.env.*
+
+# ── macOS ──
+.DS_Store
+._*
+
+# ── IDE / Editor ──
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ── Testing / Coverage ──
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
