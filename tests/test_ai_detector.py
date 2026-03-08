@@ -206,7 +206,8 @@ class TestDetectImplicitTodos:
     async def test_invalid_label_logged_and_skipped(
         self, mock_provider: AsyncMock, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """When the AI provider returns an unrecognised label, the paragraph is skipped and a warning is logged."""
+        """When the AI provider returns an unrecognised label, the paragraph is skipped
+        and a warning is logged."""
         import logging
 
         text = "I need to call the doctor about the test results."
