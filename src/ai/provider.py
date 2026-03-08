@@ -18,7 +18,7 @@ class CompletionOptions:
 
     model: str | None = None  # None → use the provider's configured default
     max_tokens: int = 4096
-    temperature: float = 0.3
+    temperature: float | None = 0.3  # None → let the model use its default
     stop: list[str] = field(default_factory=list)
 
 
