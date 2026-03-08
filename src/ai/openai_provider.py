@@ -64,18 +64,26 @@ class OpenAIProvider(AIProvider):
 
         @with_retry(config=self.retry_config, retryable=_RETRYABLE_EXCEPTIONS)
         async def _call() -> str:
-            response = await self.client.chat.completions.create(
-                model=model,
-                messages=[
+            kwargs: dict[str, object] = {
+                "model": model,
+                "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                max_completion_tokens=opts.max_tokens,
-                temperature=opts.temperature,
-                stop=opts.stop or None,
-            )
+                "max_completion_tokens": opts.max_tokens,
+            }
+            if opts.temperature is not None:
+                kwargs["temperature"] = opts.temperature
+            if opts.stop:
+                kwargs["stop"] = opts.stop
+            response = await self.client.chat.completions.create(**kwargs)  # type: ignore[arg-type]
             content = response.choices[0].message.content
-            if content is None:
+            if not content or not content.strip():
+                logger.debug(
+                    "Empty content from model %s. Full response: %s",
+                    model,
+                    response.model_dump_json(indent=2),
+                )
                 msg = "OpenAI returned an empty response"
                 raise AIProviderError(msg)
             return content

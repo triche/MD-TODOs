@@ -99,7 +99,7 @@ class TestDetectImplicitTodos:
     @pytest.fixture
     def mock_provider(self) -> AsyncMock:
         provider = AsyncMock()
-        provider.classify = AsyncMock(return_value="not_action_item")
+        provider.complete = AsyncMock(return_value="not_action_item")
         return provider
 
     @pytest.mark.asyncio
@@ -116,7 +116,7 @@ class TestDetectImplicitTodos:
         ]
         result = await detect_implicit_todos(text, "test.md", mock_provider, regex_items)
         assert result == []
-        mock_provider.classify.assert_not_called()
+        mock_provider.complete.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_action_item_detected(self, mock_provider: AsyncMock) -> None:
@@ -134,7 +134,7 @@ class TestDetectImplicitTodos:
                 detection_method="checkbox",
             )
         ]
-        mock_provider.classify = AsyncMock(return_value="action_item")
+        mock_provider.complete = AsyncMock(return_value="action_item")
 
         result = await detect_implicit_todos(text, "test.md", mock_provider, regex_items)
         # Only paragraphs not overlapping regex should be sent
@@ -147,11 +147,11 @@ class TestDetectImplicitTodos:
     async def test_not_action_item(self, mock_provider: AsyncMock) -> None:
         """Paragraphs classified as not_action_item are excluded."""
         text = "This is just some random prose that has no action items at all."
-        mock_provider.classify = AsyncMock(return_value="not_action_item")
+        mock_provider.complete = AsyncMock(return_value="not_action_item")
 
         result = await detect_implicit_todos(text, "test.md", mock_provider, [])
         assert result == []
-        mock_provider.classify.assert_called_once()
+        mock_provider.complete.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_mixed_classification(self, mock_provider: AsyncMock) -> None:
@@ -162,7 +162,7 @@ class TestDetectImplicitTodos:
             "The weather was nice today."
         )
         # First call: not action, second: action, third: not action
-        mock_provider.classify = AsyncMock(
+        mock_provider.complete = AsyncMock(
             side_effect=["not_action_item", "action_item", "not_action_item"]
         )
 
@@ -173,15 +173,51 @@ class TestDetectImplicitTodos:
         assert result[0].source_file == "test.md"
 
     @pytest.mark.asyncio
+    async def test_completed_action_item(self, mock_provider: AsyncMock) -> None:
+        """Paragraphs classified as completed_action_item get status='done'."""
+        text = (
+            "~~I need to schedule a dentist appointment.~~\n\n"
+            "We need to finish the report by Friday."
+        )
+        mock_provider.complete = AsyncMock(side_effect=["completed_action_item", "action_item"])
+
+        result = await detect_implicit_todos(text, "test.md", mock_provider, [])
+        assert len(result) == 2
+        completed = [i for i in result if i.status == "done"]
+        assert len(completed) == 1
+        assert "dentist" in completed[0].text
+        assert completed[0].detection_method == "ai_implicit"
+        open_items = [i for i in result if i.status == "open"]
+        assert len(open_items) == 1
+        assert "finish the report" in open_items[0].text
+
+    @pytest.mark.asyncio
     async def test_ai_error_gracefully_skips(self, mock_provider: AsyncMock) -> None:
         """When the AI provider raises, the paragraph is skipped."""
         from src.ai.provider import AIProviderError
 
         text = "I need to call the doctor about the test results."
-        mock_provider.classify = AsyncMock(side_effect=AIProviderError("timeout"))
+        mock_provider.complete = AsyncMock(side_effect=AIProviderError("timeout"))
 
         result = await detect_implicit_todos(text, "test.md", mock_provider, [])
         assert result == []
+
+    @pytest.mark.asyncio
+    async def test_invalid_label_logged_and_skipped(
+        self, mock_provider: AsyncMock, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """When the AI provider returns an unrecognised label, the paragraph is skipped
+        and a warning is logged."""
+        import logging
+
+        text = "I need to call the doctor about the test results."
+        mock_provider.complete = AsyncMock(return_value="maybe")
+
+        with caplog.at_level(logging.WARNING, logger="src.extractor.ai_detector"):
+            result = await detect_implicit_todos(text, "test.md", mock_provider, [])
+
+        assert result == []
+        assert any("maybe" in record.message for record in caplog.records)
 
     @pytest.mark.asyncio
     async def test_short_paragraphs_skipped(self, mock_provider: AsyncMock) -> None:
@@ -189,13 +225,13 @@ class TestDetectImplicitTodos:
         text = "Short\n\nAlso tiny"
         result = await detect_implicit_todos(text, "test.md", mock_provider, [])
         assert result == []
-        mock_provider.classify.assert_not_called()
+        mock_provider.complete.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_source_line_set_correctly(self, mock_provider: AsyncMock) -> None:
         """The source_line on returned items matches the paragraph start."""
         text = "Heading paragraph\n\nI should really book a flight to SF for the conference."
-        mock_provider.classify = AsyncMock(side_effect=["not_action_item", "action_item"])
+        mock_provider.complete = AsyncMock(side_effect=["not_action_item", "action_item"])
 
         result = await detect_implicit_todos(text, "notes/test.md", mock_provider, [])
         assert len(result) == 1

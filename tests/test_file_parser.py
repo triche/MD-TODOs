@@ -83,7 +83,7 @@ class TestParseFileWithAI:
     @pytest.fixture
     def mock_provider(self) -> AsyncMock:
         provider = AsyncMock()
-        provider.classify = AsyncMock(return_value="not_action_item")
+        provider.complete = AsyncMock(return_value="not_action_item")
         return provider
 
     @pytest.mark.asyncio
@@ -91,9 +91,10 @@ class TestParseFileWithAI:
         self, sample_md: Path, notes_dir: Path, mock_provider: AsyncMock
     ) -> None:
         # Make AI detect the dentist paragraph as an action item
-        mock_provider.classify = AsyncMock(
-            side_effect=lambda text, cats: "action_item" if "dentist" in text else "not_action_item"
-        )
+        async def _classify(*, user_prompt: str, **_kwargs: object) -> str:
+            return "action_item" if "dentist" in user_prompt else "not_action_item"
+
+        mock_provider.complete = AsyncMock(side_effect=_classify)
 
         items = await parse_file_async(
             sample_md, notes_dir, provider=mock_provider, implicit_detection=True
@@ -110,7 +111,7 @@ class TestParseFileWithAI:
         self, sample_md: Path, notes_dir: Path, mock_provider: AsyncMock
     ) -> None:
         """When AI fails entirely, regex results are still returned."""
-        mock_provider.classify = AsyncMock(side_effect=AIProviderError("down"))
+        mock_provider.complete = AsyncMock(side_effect=AIProviderError("down"))
 
         items = await parse_file_async(
             sample_md, notes_dir, provider=mock_provider, implicit_detection=True

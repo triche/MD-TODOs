@@ -143,7 +143,7 @@ class TestFullScanWithAI:
     @pytest.fixture
     def mock_provider(self) -> AsyncMock:
         provider = AsyncMock()
-        provider.classify = AsyncMock(return_value="not_action_item")
+        provider.complete = AsyncMock(return_value="not_action_item")
         return provider
 
     def test_ai_implicit_detection(
@@ -157,9 +157,10 @@ class TestFullScanWithAI:
         )
         _write_md(notes_dir, "meeting.md", content)
 
-        mock_provider.classify = AsyncMock(
-            side_effect=lambda text, cats: "action_item" if "report" in text else "not_action_item"
-        )
+        async def _classify(*, user_prompt: str, **_kwargs: object) -> str:
+            return "action_item" if "report" in user_prompt else "not_action_item"
+
+        mock_provider.complete = AsyncMock(side_effect=_classify)
 
         agent = ExtractorAgent(config_with_ai, provider=mock_provider)
         agent.run_full_scan()

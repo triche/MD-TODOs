@@ -10,18 +10,44 @@ from __future__ import annotations
 
 import asyncio
 import re
+from datetime import UTC, datetime
+from pathlib import Path
 
-from src.ai.provider import AIProvider, AIProviderError
+from src.ai.provider import AIProvider, AIProviderError, CompletionOptions
 from src.common.logging import get_logger
+from src.common.skills import SkillsFileError, load_skills
 from src.common.todo_models import TodoItem
 
 logger = get_logger(__name__)
 
-# Categories used for the classify call
-_CATEGORIES = ["action_item", "not_action_item"]
+# Valid classification labels
+_ACTION_ITEM = "action_item"
+_NOT_ACTION_ITEM = "not_action_item"
+_COMPLETED_ACTION_ITEM = "completed_action_item"
+_VALID_LABELS = {_ACTION_ITEM, _NOT_ACTION_ITEM, _COMPLETED_ACTION_ITEM}
 
 # Minimum paragraph length (in characters) to bother sending to the LLM.
 _MIN_PARAGRAPH_LEN = 15
+
+# Default path to the implicit-detection skills file.
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+_DEFAULT_SKILL_PATH = _REPO_ROOT / "skills" / "implicit_todo_detection.md"
+
+
+def _load_classification_prompt() -> str:
+    """Load the implicit-TODO-detection skills file as the system prompt."""
+    try:
+        return load_skills(_DEFAULT_SKILL_PATH)
+    except SkillsFileError:
+        logger.warning(
+            "Could not load implicit-detection skill file at %s; falling back to minimal prompt",
+            _DEFAULT_SKILL_PATH,
+        )
+        return (
+            "You are a text classifier. Classify the following text as one of "
+            "action_item, completed_action_item, or not_action_item.\n\n"
+            "Reply with ONLY the label, nothing else."
+        )
 
 
 def _split_paragraphs(text: str) -> list[tuple[str, int]]:
@@ -136,11 +162,27 @@ async def detect_implicit_todos(
         source_file,
     )
 
+    system_prompt = _load_classification_prompt()
+    # Budget must accommodate reasoning tokens (for reasoning models like
+    # gpt-5-mini) plus the short classification label.
+    classify_options = CompletionOptions(max_tokens=1024, temperature=None)
+
     items: list[TodoItem] = []
 
     for para_text, para_start in candidates:
         try:
-            category = await provider.classify(para_text, _CATEGORIES)
+            raw = await provider.complete(
+                system_prompt=system_prompt,
+                user_prompt=para_text,
+                options=classify_options,
+            )
+            logger.debug(
+                "Raw AI response for paragraph at line %d in %s: %r",
+                para_start,
+                source_file,
+                raw,
+            )
+            category = raw.strip().lower()
         except AIProviderError:
             logger.warning(
                 "AI classification failed for paragraph at line %d in %s; skipping",
@@ -150,7 +192,16 @@ async def detect_implicit_todos(
             )
             continue
 
-        if category == "action_item":
+        if category not in _VALID_LABELS:
+            logger.warning(
+                "Unexpected classification %r for paragraph at line %d in %s; skipping",
+                category,
+                para_start,
+                source_file,
+            )
+            continue
+
+        if category == _ACTION_ITEM:
             line_idx = para_start - 1  # 0-based
             context = _surrounding_context(lines, line_idx, window=context_window)
             action_text = _extract_action_text(para_text)
@@ -166,6 +217,27 @@ async def detect_implicit_todos(
             items.append(item)
             logger.debug(
                 "AI detected implicit TODO at line %d in %s: %s",
+                para_start,
+                source_file,
+                action_text[:60],
+            )
+        elif category == _COMPLETED_ACTION_ITEM:
+            line_idx = para_start - 1
+            context = _surrounding_context(lines, line_idx, window=context_window)
+            action_text = _extract_action_text(para_text)
+
+            item = TodoItem(
+                text=action_text,
+                source_file=source_file,
+                source_line=para_start,
+                surrounding_context=context,
+                detection_method="ai_implicit",
+                status="done",
+                done_at=datetime.now(UTC),
+            )
+            items.append(item)
+            logger.debug(
+                "AI detected completed implicit TODO at line %d in %s: %s",
                 para_start,
                 source_file,
                 action_text[:60],
