@@ -43,8 +43,8 @@ def _load_classification_prompt() -> str:
             _DEFAULT_SKILL_PATH,
         )
         return (
-            "You are a text classifier. Classify the following text as "
-            "either action_item or not_action_item.\n\n"
+            "You are a text classifier. Classify the following text as one of "
+            "action_item, completed_action_item, or not_action_item.\n\n"
             "Reply with ONLY the label, nothing else."
         )
 
