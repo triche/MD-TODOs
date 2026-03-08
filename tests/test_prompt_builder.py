@@ -41,12 +41,14 @@ class TestGetPlanInstructions:
         assert "Get Clear" in result
         assert "Get Current" in result
         assert "Get Creative" in result
+        assert "completed since" in result.lower() or "Completed" in result
 
     def test_weekly_plan_includes_key_sections(self) -> None:
         result = get_plan_instructions("weekly-plan")
-        assert "Top 3" in result
+        assert "Weekend Review" in result
         assert "Day-by-Day" in result
         assert "Quadrant 2" in result
+        assert "weekend" in result.lower()
 
     def test_unknown_plan_type_raises(self) -> None:
         with pytest.raises(ValueError, match="Unknown plan type"):
@@ -125,3 +127,26 @@ class TestBuildUserPrompt:
         assert parsed[0]["text"] == "Test item"
         assert parsed[0]["source_file"] == "project/notes.md"
         assert parsed[0]["source_line"] == 42
+
+    def test_completed_todos_included(self) -> None:
+        open_todos = [_make_todo("Open item")]
+        completed = [_make_todo("Done item")]
+        result = build_user_prompt(open_todos, completed_todos=completed)
+        assert "1 total" in result
+        assert "Open item" in result
+        assert "recently completed" in result.lower()
+        assert "Done item" in result
+
+    def test_completed_todos_without_open(self) -> None:
+        result = build_user_prompt([], completed_todos=[_make_todo("Finished")])
+        assert "no open todo items" in result.lower()
+        assert "Finished" in result
+        assert "recently completed" in result.lower()
+
+    def test_no_completed_section_when_none(self) -> None:
+        result = build_user_prompt([_make_todo("Open")])
+        assert "recently completed" not in result.lower()
+
+    def test_no_completed_section_when_empty_list(self) -> None:
+        result = build_user_prompt([_make_todo("Open")], completed_todos=[])
+        assert "recently completed" not in result.lower()

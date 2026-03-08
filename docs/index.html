@@ -250,10 +250,23 @@ cd MD-TODOs</code></pre>
     <tbody>
       <tr><td>Morning plan</td><td>6:00 AM, Mon–Fri</td><td>Prioritize the day ahead</td></tr>
       <tr><td>Afternoon plan</td><td>12:00 PM, Mon–Fri</td><td>Re-triage; surface quick wins</td></tr>
-      <tr><td>Weekly review</td><td>3:00 PM, Friday</td><td>Reflect on the week</td></tr>
-      <tr><td>Weekly plan</td><td>6:00 PM, Sunday</td><td>Plan the coming week</td></tr>
+      <tr><td>Weekly review</td><td>3:00 PM, Friday</td><td>Reflect on the week; review all TODOs completed since Monday</td></tr>
+      <tr><td>Weekly plan</td><td>6:00 PM, Sunday</td><td>Review weekend completions; plan the coming week; purge completed TODOs</td></tr>
     </tbody>
   </table>
+
+  <h3>Completed TODO Tracking</h3>
+  <p>
+    Every TODO that is marked done receives a <code>done_at</code> timestamp. The weekly plans leverage this:
+  </p>
+  <ul>
+    <li><strong>Friday weekly review</strong> — The prompt includes all TODOs completed since Monday morning,
+      enabling a thorough retrospective on the week's accomplishments.</li>
+    <li><strong>Sunday weekly plan</strong> — The prompt includes TODOs completed on Saturday and Sunday,
+      turning the plan into a weekend review + weekly plan. After the Sunday plan is generated,
+      all completed TODOs are automatically purged from the store (their originals still exist in your notes).</li>
+  </ul>
+  <p>This keeps the store lean while preserving full history in the notes directory.</p>
 
   <p>Plans are written to your configured <code>plans_dir</code> in <code>YYYY/MM/</code> subdirectories:</p>
   <pre><code>~/plans/

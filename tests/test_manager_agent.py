@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
@@ -364,3 +364,265 @@ class TestManagerAgent:
         # The agent should have picked up both items
         assert mock_provider.last_user_prompt is not None
         assert "2 total" in mock_provider.last_user_prompt
+
+
+# ---------------------------------------------------------------------------
+# Completed date tracking & cleanup
+# ---------------------------------------------------------------------------
+
+
+class TestCompletedDateTracking:
+    """Tests for completed TODO handling in weekly-review and weekly-plan."""
+
+    @pytest.fixture
+    def skills_file(self, tmp_path: Path) -> Path:
+        skills = tmp_path / "skills" / "gtd.md"
+        skills.parent.mkdir(parents=True)
+        skills.write_text("# GTD Reference\n\nTest skills.\n")
+        return skills
+
+    @pytest.fixture
+    def store_path(self, tmp_path: Path) -> Path:
+        return tmp_path / "store" / "todos.json"
+
+    @pytest.fixture
+    def plans_dir(self, tmp_path: Path) -> Path:
+        d = tmp_path / "plans"
+        d.mkdir()
+        return d
+
+    @pytest.fixture
+    def app_config(
+        self, tmp_path: Path, skills_file: Path, store_path: Path, plans_dir: Path
+    ) -> AppConfig:
+        return AppConfig(
+            notes_dir=tmp_path / "notes",
+            plans_dir=plans_dir,
+            data_dir=tmp_path,
+            store_path=store_path,
+            skills_path=skills_file,
+        )
+
+    @pytest.fixture
+    def mock_provider(self) -> MockAIProvider:
+        return MockAIProvider()
+
+    def test_weekly_review_includes_completed_since_monday(
+        self,
+        app_config: AppConfig,
+        store_path: Path,
+        mock_provider: MockAIProvider,
+    ) -> None:
+        """Weekly review should include items completed since Monday in the prompt."""
+        store = TodoStore(store_path)
+        store.load()
+        store.add(
+            TodoItem(
+                text="Open task",
+                source_file="notes.md",
+                source_line=1,
+                detection_method="checkbox",
+            )
+        )
+        # Completed on Wednesday (within the week)
+        store.add(
+            TodoItem(
+                text="Midweek done",
+                source_file="notes.md",
+                source_line=5,
+                detection_method="keyword",
+                status="done",
+                done_at=datetime(2026, 3, 4, 14, 0, tzinfo=UTC),  # Wednesday
+            )
+        )
+        # Completed last week (should NOT appear)
+        store.add(
+            TodoItem(
+                text="Old done",
+                source_file="notes.md",
+                source_line=10,
+                detection_method="keyword",
+                status="done",
+                done_at=datetime(2026, 2, 25, 12, 0, tzinfo=UTC),  # last week
+            )
+        )
+        store.save()
+
+        agent = ManagerAgent(app_config, provider=mock_provider, store=store)
+        # Friday March 6, 2026
+        asyncio.run(agent.generate_plan("weekly-review", date(2026, 3, 6)))
+
+        assert mock_provider.last_user_prompt is not None
+        assert "Midweek done" in mock_provider.last_user_prompt
+        assert "Old done" not in mock_provider.last_user_prompt
+        assert "recently completed" in mock_provider.last_user_prompt.lower()
+
+    def test_weekly_plan_includes_weekend_completed(
+        self,
+        app_config: AppConfig,
+        store_path: Path,
+        mock_provider: MockAIProvider,
+    ) -> None:
+        """Weekly plan should include items completed on Saturday/Sunday."""
+        store = TodoStore(store_path)
+        store.load()
+        store.add(
+            TodoItem(
+                text="Open task",
+                source_file="notes.md",
+                source_line=1,
+                detection_method="checkbox",
+            )
+        )
+        # Completed on Saturday
+        store.add(
+            TodoItem(
+                text="Saturday done",
+                source_file="notes.md",
+                source_line=5,
+                detection_method="keyword",
+                status="done",
+                done_at=datetime(2026, 3, 7, 10, 0, tzinfo=UTC),  # Saturday
+            )
+        )
+        # Completed on Friday (should NOT appear in weekend completions)
+        store.add(
+            TodoItem(
+                text="Friday done",
+                source_file="notes.md",
+                source_line=10,
+                detection_method="keyword",
+                status="done",
+                done_at=datetime(2026, 3, 6, 15, 0, tzinfo=UTC),  # Friday
+            )
+        )
+        store.save()
+
+        agent = ManagerAgent(app_config, provider=mock_provider, store=store)
+        # Sunday March 8, 2026
+        asyncio.run(agent.generate_plan("weekly-plan", date(2026, 3, 8)))
+
+        assert mock_provider.last_user_prompt is not None
+        assert "Saturday done" in mock_provider.last_user_prompt
+        assert "Friday done" not in mock_provider.last_user_prompt
+
+    def test_weekly_plan_purges_completed(
+        self,
+        app_config: AppConfig,
+        store_path: Path,
+        mock_provider: MockAIProvider,
+    ) -> None:
+        """After weekly plan generation, all completed TODOs are removed."""
+        store = TodoStore(store_path)
+        store.load()
+        store.add(
+            TodoItem(
+                text="Open task",
+                source_file="notes.md",
+                source_line=1,
+                detection_method="checkbox",
+            )
+        )
+        store.add(
+            TodoItem(
+                text="Done task old",
+                source_file="notes.md",
+                source_line=5,
+                detection_method="keyword",
+                status="done",
+                done_at=datetime(2026, 2, 20, tzinfo=UTC),
+            )
+        )
+        store.add(
+            TodoItem(
+                text="Done task recent",
+                source_file="notes.md",
+                source_line=10,
+                detection_method="keyword",
+                status="done",
+                done_at=datetime(2026, 3, 7, 10, 0, tzinfo=UTC),
+            )
+        )
+        store.save()
+
+        agent = ManagerAgent(app_config, provider=mock_provider, store=store)
+        asyncio.run(agent.generate_plan("weekly-plan", date(2026, 3, 8)))
+
+        # Reload store from disk to verify persistence
+        store2 = TodoStore(store_path)
+        store2.load()
+        assert store2.count == 1
+        assert store2.open_count == 1
+        assert len(store2.get_done()) == 0
+
+    def test_morning_plan_does_not_purge(
+        self,
+        app_config: AppConfig,
+        store_path: Path,
+        mock_provider: MockAIProvider,
+    ) -> None:
+        """Non-weekly-plan types should NOT remove completed items."""
+        store = TodoStore(store_path)
+        store.load()
+        store.add(
+            TodoItem(
+                text="Open",
+                source_file="notes.md",
+                source_line=1,
+                detection_method="checkbox",
+            )
+        )
+        store.add(
+            TodoItem(
+                text="Done",
+                source_file="notes.md",
+                source_line=5,
+                detection_method="keyword",
+                status="done",
+                done_at=datetime(2026, 3, 5, tzinfo=UTC),
+            )
+        )
+        store.save()
+
+        agent = ManagerAgent(app_config, provider=mock_provider, store=store)
+        asyncio.run(agent.generate_plan("morning", date(2026, 3, 6)))
+
+        store2 = TodoStore(store_path)
+        store2.load()
+        assert store2.count == 2
+        assert len(store2.get_done()) == 1
+
+    def test_morning_plan_no_completed_in_prompt(
+        self,
+        app_config: AppConfig,
+        store_path: Path,
+        mock_provider: MockAIProvider,
+    ) -> None:
+        """Morning plan should not include completed TODOs in the prompt."""
+        store = TodoStore(store_path)
+        store.load()
+        store.add(
+            TodoItem(
+                text="Open task",
+                source_file="notes.md",
+                source_line=1,
+                detection_method="checkbox",
+            )
+        )
+        store.add(
+            TodoItem(
+                text="Done task",
+                source_file="notes.md",
+                source_line=5,
+                detection_method="keyword",
+                status="done",
+                done_at=datetime(2026, 3, 5, tzinfo=UTC),
+            )
+        )
+        store.save()
+
+        agent = ManagerAgent(app_config, provider=mock_provider, store=store)
+        asyncio.run(agent.generate_plan("morning", date(2026, 3, 6)))
+
+        assert mock_provider.last_user_prompt is not None
+        assert "recently completed" not in mock_provider.last_user_prompt.lower()

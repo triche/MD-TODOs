@@ -99,8 +99,17 @@ All commands accept a `--config <path>` option to override the default config fi
 |---|---|---|
 | Morning plan | 6:00 AM, Mon–Fri | Prioritize the day ahead |
 | Afternoon plan | 12:00 PM, Mon–Fri | Re-triage; surface quick wins |
-| Weekly review | 3:00 PM, Friday | Reflect on the week |
-| Weekly plan | 6:00 PM, Sunday | Plan the coming week |
+| Weekly review | 3:00 PM, Friday | Reflect on the week; review all TODOs completed since Monday |
+| Weekly plan | 6:00 PM, Sunday | Review weekend completions; plan the coming week; purge completed TODOs |
+
+### Completed TODO Tracking
+
+Every TODO that is marked done receives a `done_at` timestamp. The weekly plans leverage this:
+
+- **Friday weekly review** — The prompt includes all TODOs completed since Monday morning, enabling a thorough retrospective on the week's accomplishments.
+- **Sunday weekly plan** — The prompt includes TODOs completed on Saturday and Sunday, turning the plan into a weekend review + weekly plan. After the Sunday plan is generated, all completed TODOs are automatically purged from the store (their originals still exist in your notes).
+
+This keeps the store lean while preserving full history in the notes directory.
 
 Plans are written to your configured `plans_dir` in `YYYY/MM/` subdirectories:
 

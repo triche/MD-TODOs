@@ -76,10 +76,15 @@ You are generating a **Weekly Review** — the cornerstone habit of GTD.
 
 **Purpose:** Get clear, get current, get creative.
 
+You will receive two lists: **open TODO items** and **items completed since \
+Monday morning**. Use both to give a complete picture of the week.
+
 Your plan MUST include these sections in order:
 
 1. **Summary** — Headline assessment of the week.
-2. **Completed This Week** — Items that were marked done. Celebrate wins.
+2. **Completed This Week** — Walk through every item completed since Monday. \
+Celebrate wins, note the volume and velocity of completions, and highlight \
+any patterns (e.g. most completions were work-related, health tasks were neglected).
 3. **Get Clear** — Walk through GTD's "Get Clear" checklist: \
 process inboxes, empty your head, capture new open loops.
 4. **Get Current** — Review next actions, past and upcoming calendar, \
@@ -97,23 +102,30 @@ For every TODO item you reference, include a source link in the format: \
 Follow the formatting guidelines from the GTD skills reference (Section 8). \
 Use `- [x]` for completed items and `- [ ]` for open items.""",
     "weekly-plan": """\
-You are generating a **Weekly Plan** for the coming week.
+You are generating a **Weekend Review & Weekly Plan** for the coming week.
 
-**Purpose:** Set intentions and priorities for the week ahead.
+**Purpose:** Close out the weekend and set intentions for the week ahead.
+
+You will receive two lists: **open TODO items** and **items completed over \
+the weekend (Saturday and Sunday)**. Use the completed items to review the \
+weekend before planning the week.
 
 Your plan MUST include these sections in order:
 
-1. **Summary** — Theme or focus area for the week.
-2. **Top 3-5 Weekly Priorities** — The most important outcomes for the week. \
+1. **Weekend Review** — Summarize what was accomplished over the weekend. \
+Walk through each completed item, celebrate wins, and note any loose ends.
+2. **Summary** — Theme or focus area for the coming week, informed by the \
+weekend review and remaining open items.
+3. **Top 3-5 Weekly Priorities** — The most important outcomes for the week. \
 Use the Eisenhower matrix to prioritize.
-3. **Day-by-Day Allocation** — Rough allocation of goals and tasks to specific \
+4. **Day-by-Day Allocation** — Rough allocation of goals and tasks to specific \
 days (Monday through Friday). Consider context and energy patterns.
-4. **Active Projects** — List each active project with its next action. \
+5. **Active Projects** — List each active project with its next action. \
 Every project MUST have at least one next action.
-5. **Quadrant 2 Blocks** — Reserve specific time blocks for important-but-not-urgent \
+6. **Quadrant 2 Blocks** — Reserve specific time blocks for important-but-not-urgent \
 work (strategic planning, skill-building, health).
-6. **Potential Conflicts** — Flag any overcommitments or scheduling conflicts.
-7. **Someday/Maybe Check** — Items from Someday/Maybe worth activating this week.
+7. **Potential Conflicts** — Flag any overcommitments or scheduling conflicts.
+8. **Someday/Maybe Check** — Items from Someday/Maybe worth activating this week.
 
 For every TODO item you reference, include a source link in the format: \
 `[source](relative/path/to/file.md#L<line>)`.
@@ -151,27 +163,43 @@ def build_system_prompt(skills_content: str, plan_type: PlanType) -> str:
     return f"{skills_content}\n\n---\n\n{instructions}"
 
 
-def build_user_prompt(open_todos: list[TodoItem]) -> str:
+def build_user_prompt(
+    open_todos: list[TodoItem],
+    completed_todos: list[TodoItem] | None = None,
+) -> str:
     """Build the user prompt containing open TODOs as JSON.
 
     Args:
         open_todos: List of open TODO items from the store.
+        completed_todos: Optional list of recently completed TODO items
+            (e.g. completed since Monday for a weekly review).
 
     Returns:
         The user prompt string.
     """
-    if not open_todos:
-        return (
+    parts: list[str] = []
+
+    if open_todos:
+        todos_json = _TODO_LIST_ADAPTER.dump_json(open_todos, indent=2).decode()
+        parts.append(
+            f"Below are the current open TODO items ({len(open_todos)} total) "
+            f"from the user's notes.\n\n"
+            f"```json\n{todos_json}\n```"
+        )
+    else:
+        parts.append(
             "There are currently **no open TODO items** in the store.\n\n"
             "Generate a plan that acknowledges the empty inbox and suggests "
             "proactive actions: review Someday/Maybe items, do a mind sweep "
             "to capture new commitments, or focus on Quadrant 2 strategic work."
         )
 
-    todos_json = _TODO_LIST_ADAPTER.dump_json(open_todos, indent=2).decode()
+    if completed_todos:
+        completed_json = _TODO_LIST_ADAPTER.dump_json(completed_todos, indent=2).decode()
+        parts.append(
+            f"\n\nBelow are the recently completed TODO items "
+            f"({len(completed_todos)} total).\n\n"
+            f"```json\n{completed_json}\n```"
+        )
 
-    return (
-        f"Below are the current open TODO items ({len(open_todos)} total) "
-        f"from the user's notes. Generate the plan based on these items.\n\n"
-        f"```json\n{todos_json}\n```"
-    )
+    return "\n".join(parts)
