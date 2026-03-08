@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+from datetime import UTC, datetime
 from pathlib import Path
 
 from src.ai.provider import AIProvider, AIProviderError, CompletionOptions
@@ -232,6 +233,7 @@ async def detect_implicit_todos(
                 surrounding_context=context,
                 detection_method="ai_implicit",
                 status="done",
+                done_at=datetime.now(UTC),
             )
             items.append(item)
             logger.debug(
