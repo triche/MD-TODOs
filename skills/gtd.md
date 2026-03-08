@@ -133,7 +133,7 @@ The Weekly Review is the **cornerstone habit** of GTD. It brings the entire syst
 
 - [ ] **Review Horizons of Focus** — are your current projects and actions aligned with your goals and values?
 - [ ] **Brainstorm** — are there new projects, ideas, or improvements you want to capture?
-- [ ] **Identify wins** — what went well this week? Acknowledge progress.
+- [ ] **Note outcomes** — what was completed this week? Identify what worked and what didn't.
 
 ---
 
@@ -172,7 +172,6 @@ The morning plan should:
 4. Group remaining next actions by context.
 5. Flag items that are **blocked** or **waiting for** someone else.
 6. Note any deadlines approaching this week.
-7. End with a brief motivational or focusing statement.
 
 ### 7.2 Afternoon Plan
 
@@ -198,7 +197,7 @@ The weekly review plan should:
 3. Identify stalled projects and recommend next actions.
 4. Review the Waiting For list and suggest follow-ups.
 5. Surface any Someday/Maybe items ready to activate.
-6. Provide an honest assessment of the week — wins, struggles, patterns.
+6. Provide a candid assessment of the week — what worked, what didn't, and recurring patterns.
 
 ### 7.4 Weekly Plan
 
@@ -226,10 +225,11 @@ When generating Markdown plans, follow these conventions:
 - Use `**bold**` for emphasis on priority items.
 - Use context tags inline: `@work`, `@home`, `@computer`, etc.
 - Include source references as relative file links: `[source](../../notes/2024/06/meeting.md#L42)`.
-- Keep language concise, direct, and actionable — no filler.
+- Keep language concise, direct, and actionable — no filler, no motivational language.
+- Use a professional, matter-of-fact tone throughout. State what needs doing and why, not how the user should feel about it.
 - Use time estimates where possible: `(~15 min)`, `(~2 min)`, `(~1 hr)`.
-- Use contextually appropriate emoji to make plans visually scannable and engaging:
-  - Section headings: 📋 Summary, 🎯 Priorities, ⚡ Quick Wins, 🚧 Blocked, 📅 Deadlines, 🧭 Focus Statement, 🔄 Review, 💡 Creative, 🏆 Wins.
+- Use contextually appropriate emoji to make plans visually scannable:
+  - Section headings: 📋 Summary, 🎯 Priorities, ⚡ Quick Wins, 🚧 Blocked, 📅 Deadlines, 🔄 Review, 💡 Creative.
   - Context tags: 💻 `@computer`, 📱 `@phone`, 🏠 `@home`, 🏢 `@work`, 🛒 `@errands`, 🌍 `@anywhere`.
   - Status indicators: ✅ completed, ⏳ waiting/blocked, 🔥 urgent, ⭐ important.
   - Choose emoji that match the meaning of each item — don't repeat the same emoji for everything.
