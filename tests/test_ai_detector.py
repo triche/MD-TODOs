@@ -203,6 +203,22 @@ class TestDetectImplicitTodos:
         assert result == []
 
     @pytest.mark.asyncio
+    async def test_invalid_label_logged_and_skipped(
+        self, mock_provider: AsyncMock, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """When the AI provider returns an unrecognised label, the paragraph is skipped and a warning is logged."""
+        import logging
+
+        text = "I need to call the doctor about the test results."
+        mock_provider.complete = AsyncMock(return_value="maybe")
+
+        with caplog.at_level(logging.WARNING, logger="src.extractor.ai_detector"):
+            result = await detect_implicit_todos(text, "test.md", mock_provider, [])
+
+        assert result == []
+        assert any("maybe" in record.message for record in caplog.records)
+
+    @pytest.mark.asyncio
     async def test_short_paragraphs_skipped(self, mock_provider: AsyncMock) -> None:
         """Paragraphs shorter than the minimum length are not sent to AI."""
         text = "Short\n\nAlso tiny"
