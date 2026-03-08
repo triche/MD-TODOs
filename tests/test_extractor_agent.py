@@ -157,7 +157,7 @@ class TestFullScanWithAI:
         )
         _write_md(notes_dir, "meeting.md", content)
 
-        async def _classify(system_prompt: str, user_prompt: str, options: object = None) -> str:
+        async def _classify(*, user_prompt: str, **_kwargs: object) -> str:
             return "action_item" if "report" in user_prompt else "not_action_item"
 
         mock_provider.complete = AsyncMock(side_effect=_classify)

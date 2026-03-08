@@ -91,7 +91,7 @@ class TestParseFileWithAI:
         self, sample_md: Path, notes_dir: Path, mock_provider: AsyncMock
     ) -> None:
         # Make AI detect the dentist paragraph as an action item
-        async def _classify(system_prompt: str, user_prompt: str, options: object = None) -> str:
+        async def _classify(*, user_prompt: str, **_kwargs: object) -> str:
             return "action_item" if "dentist" in user_prompt else "not_action_item"
 
         mock_provider.complete = AsyncMock(side_effect=_classify)
