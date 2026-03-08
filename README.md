@@ -171,7 +171,8 @@ The repo contains only source code and templates. All personal data lives outsid
 ```
 MD-TODOs/                        ← repo (public on GitHub)
   src/                           ← agent code, AI provider, CLI
-  skills/gtd.md                  ← GTD knowledge file
+  skills/gtd.md                  ← GTD knowledge file (Manager agent)
+  skills/implicit_todo_detection.md ← Implicit TODO classification guide (Extractor agent)
   templates/                     ← config + launchd plist templates
   scripts/                       ← install/uninstall scripts
   tests/
@@ -191,7 +192,10 @@ MD-TODOs/                        ← repo (public on GitHub)
 The extractor uses a layered approach:
 
 1. **Regex** (fast, free) — catches `- [ ] …`, `TODO:`, `FIXME:`, `ACTION:` patterns.
-2. **AI classification** (targeted) — only paragraphs not captured by regex are sent to the LLM for implicit action item detection.
+2. **AI detection** (targeted) — only paragraphs not captured by regex are sent to the LLM. The `skills/implicit_todo_detection.md` file serves as the system prompt, and the LLM classifies each paragraph as one of:
+   - `action_item` — added to the store as an open TODO.
+   - `completed_action_item` — added to the store as a done TODO (e.g., text with strikethrough or a "DONE" marker).
+   - `not_action_item` — skipped.
 
 This keeps API costs low while still catching buried action items in prose.
 
@@ -210,6 +214,10 @@ Ships with an OpenAI implementation. Swap providers by implementing the interfac
 ### GTD Skills File
 
 GTD methodology is encoded in `skills/gtd.md`, not in code. This file is injected into the Manager agent's LLM system prompt. To refine GTD behavior, edit the skills file — no code changes required.
+
+### Implicit TODO Detection Skills File
+
+Implicit TODO classification rules are encoded in `skills/implicit_todo_detection.md`, not in code. This file is injected into the Extractor agent's LLM system prompt (via `provider.complete()`) when classifying paragraphs for implicit action items. It defines the three labels (`action_item`, `completed_action_item`, `not_action_item`) with examples. To refine detection behavior, edit the skills file — no code changes required.
 
 ## Security
 
