@@ -323,7 +323,8 @@ logging:
   <p>The repo contains only source code and templates. All personal data lives outside the repo:</p>
   <pre><code>MD-TODOs/                        ← repo (public on GitHub)
   src/                           ← agent code, AI provider, CLI
-  skills/gtd.md                  ← GTD knowledge file
+  skills/gtd.md                  ← GTD knowledge file (Manager agent)
+  skills/implicit_todo_detection.md ← Implicit TODO classification guide (Extractor agent)
   templates/                     ← config + launchd plist templates
   scripts/                       ← install/uninstall scripts
   tests/
@@ -341,7 +342,13 @@ logging:
   <p>The extractor uses a layered approach:</p>
   <ol>
     <li><strong>Regex</strong> (fast, free) — catches <code>- [ ] …</code>, <code>TODO:</code>, <code>FIXME:</code>, <code>ACTION:</code> patterns.</li>
-    <li><strong>AI classification</strong> (targeted) — only paragraphs not captured by regex are sent to the LLM for implicit action item detection.</li>
+    <li><strong>AI detection</strong> (targeted) — only paragraphs not captured by regex are sent to the LLM. The <code>skills/implicit_todo_detection.md</code> file serves as the system prompt, and the LLM classifies each paragraph as one of:
+      <ul>
+        <li><code>action_item</code> — added to the store as an open TODO.</li>
+        <li><code>completed_action_item</code> — added to the store as a done TODO (e.g., text with strikethrough or a &ldquo;DONE&rdquo; marker).</li>
+        <li><code>not_action_item</code> — skipped.</li>
+      </ul>
+    </li>
   </ol>
   <p>This keeps API costs low while still catching buried action items in prose.</p>
 
@@ -359,6 +366,16 @@ logging:
   <p>
     GTD methodology is encoded in <code>skills/gtd.md</code>, not in code. This file is injected
     into the Manager agent's LLM system prompt. To refine GTD behavior, edit the skills
+    file&nbsp;&mdash; no code changes required.
+  </p>
+
+  <h3>Implicit TODO Detection Skills File</h3>
+  <p>
+    Implicit TODO classification rules are encoded in <code>skills/implicit_todo_detection.md</code>,
+    not in code. This file is injected into the Extractor agent's LLM system prompt (via
+    <code>provider.complete()</code>) when classifying paragraphs for implicit action items.
+    It defines the three labels (<code>action_item</code>, <code>completed_action_item</code>,
+    <code>not_action_item</code>) with examples. To refine detection behavior, edit the skills
     file&nbsp;&mdash; no code changes required.
   </p>
 
