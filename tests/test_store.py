@@ -163,6 +163,52 @@ class TestStoreQueries:
         assert store.count == 3
         assert len(store) == 3
 
+    def test_get_done_since(self) -> None:
+        store = TodoStore(Path("/tmp/unused.json"))
+        old_done = _make_item(
+            text="old done",
+            status="done",
+            done_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        recent_done = _make_item(
+            text="recent done",
+            status="done",
+            done_at=datetime(2026, 3, 5, 10, 0, tzinfo=UTC),
+        )
+        open_item = _make_item(text="still open")
+        store.add(old_done)
+        store.add(recent_done)
+        store.add(open_item)
+
+        since = datetime(2026, 3, 2, tzinfo=UTC)
+        results = store.get_done_since(since)
+        assert len(results) == 1
+        assert results[0].text == "recent done"
+
+    def test_get_done_since_empty(self) -> None:
+        store = TodoStore(Path("/tmp/unused.json"))
+        store.add(_make_item(text="open"))
+        results = store.get_done_since(datetime(2026, 1, 1, tzinfo=UTC))
+        assert results == []
+
+    def test_remove_completed(self) -> None:
+        store = TodoStore(Path("/tmp/unused.json"))
+        store.add(_make_item(text="open one"))
+        store.add(_make_item(text="done one", status="done", done_at=datetime.now(UTC)))
+        store.add(_make_item(text="done two", status="done", done_at=datetime.now(UTC)))
+
+        removed = store.remove_completed()
+        assert removed == 2
+        assert store.count == 1
+        assert store.open_count == 1
+
+    def test_remove_completed_none(self) -> None:
+        store = TodoStore(Path("/tmp/unused.json"))
+        store.add(_make_item(text="open one"))
+        removed = store.remove_completed()
+        assert removed == 0
+        assert store.count == 1
+
 
 # ---------------------------------------------------------------------------
 # Store: persistence (save / load round-trip)

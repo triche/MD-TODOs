@@ -14,7 +14,7 @@ Usage::
 from __future__ import annotations
 
 import asyncio
-from datetime import date
+from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 
 from src.ai.provider import AIProvider, AIProviderError, CompletionOptions
@@ -22,6 +22,7 @@ from src.common.config_models import AppConfig
 from src.common.logging import get_logger
 from src.common.skills import SkillsFileError, load_skills
 from src.common.store import TodoStore
+from src.common.todo_models import TodoItem
 from src.manager.plan_writer import write_plan
 from src.manager.prompt_builder import (
     PlanType,
@@ -90,6 +91,57 @@ class ManagerAgent:
         return self._skills_content
 
     # ------------------------------------------------------------------
+    # Completed-TODO helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _monday_midnight(plan_date: date | None = None) -> datetime:
+        """Return midnight UTC on the Monday of the week containing *plan_date*."""
+        d = plan_date or date.today()
+        monday = d - timedelta(days=d.weekday())  # weekday 0 = Monday
+        return datetime.combine(monday, time.min, tzinfo=UTC)
+
+    @staticmethod
+    def _saturday_midnight(plan_date: date | None = None) -> datetime:
+        """Return midnight UTC on the Saturday of the week containing *plan_date*."""
+        d = plan_date or date.today()
+        saturday = d - timedelta(days=(d.weekday() - 5) % 7)
+        return datetime.combine(saturday, time.min, tzinfo=UTC)
+
+    def _get_completed_for_plan(
+        self,
+        plan_type: PlanType,
+        plan_date: date | None = None,
+    ) -> list[TodoItem] | None:
+        """Return recently completed TODOs relevant to the plan type.
+
+        - **weekly-review** (Friday): items completed since Monday 00:00 UTC.
+        - **weekly-plan** (Sunday): items completed since Saturday 00:00 UTC.
+        - Other plan types: ``None`` (no completed items needed).
+        """
+        if plan_type == "weekly-review":
+            since = self._monday_midnight(plan_date)
+            completed = self._store.get_done_since(since)
+            logger.info(
+                "Found %d TODOs completed since %s for weekly review",
+                len(completed),
+                since,
+            )
+            return completed or None
+
+        if plan_type == "weekly-plan":
+            since = self._saturday_midnight(plan_date)
+            completed = self._store.get_done_since(since)
+            logger.info(
+                "Found %d TODOs completed since %s for weekly plan",
+                len(completed),
+                since,
+            )
+            return completed or None
+
+        return None
+
+    # ------------------------------------------------------------------
     # Plan generation
     # ------------------------------------------------------------------
 
@@ -120,18 +172,21 @@ class ManagerAgent:
         open_todos = self._store.get_open()
         logger.info("Found %d open TODOs for plan generation", len(open_todos))
 
-        # 3. Load skills
+        # 3. Get recently completed TODOs for review-oriented plans
+        completed_todos = self._get_completed_for_plan(plan_type, plan_date)
+
+        # 4. Load skills
         try:
             skills = self._load_skills()
         except SkillsFileError as exc:
             msg = f"Failed to load GTD skills file: {exc}"
             raise PlanGenerationError(msg) from exc
 
-        # 4. Build prompts
+        # 5. Build prompts
         system_prompt = build_system_prompt(skills, plan_type)
-        user_prompt = build_user_prompt(open_todos)
+        user_prompt = build_user_prompt(open_todos, completed_todos)
 
-        # 5. Call AI provider
+        # 6. Call AI provider
         options = CompletionOptions(
             model=self._config.ai.models.generation,
             max_tokens=self._config.ai.max_tokens,
@@ -144,8 +199,15 @@ class ManagerAgent:
             msg = f"AI provider failed during {plan_type} plan generation: {exc}"
             raise PlanGenerationError(msg) from exc
 
-        # 6. Write plan file
+        # 7. Write plan file
         output_path = write_plan(self._plans_dir, plan_type, plan_content, plan_date)
+
+        # 8. After weekly-plan (Sunday), purge completed TODOs from store
+        if plan_type == "weekly-plan":
+            removed = self._store.remove_completed()
+            if removed:
+                self._store.save()
+                logger.info("Purged %d completed TODOs from store after weekly plan", removed)
 
         logger.info("Successfully generated %s plan: %s", plan_type, output_path)
         return output_path

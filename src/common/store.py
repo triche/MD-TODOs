@@ -200,6 +200,29 @@ class TodoStore:
         """Return all items whose status is ``"done"``."""
         return [item for item in self._items.values() if item.status == "done"]
 
+    def get_done_since(self, since: datetime) -> list[TodoItem]:
+        """Return items completed at or after *since*.
+
+        Only considers items with a non-None ``done_at`` timestamp.
+        """
+        return [
+            item
+            for item in self._items.values()
+            if item.status == "done" and item.done_at is not None and item.done_at >= since
+        ]
+
+    def remove_completed(self) -> int:
+        """Remove all completed items from the store.
+
+        Returns the number of items removed.
+        """
+        done_ids = [iid for iid, item in self._items.items() if item.status == "done"]
+        for iid in done_ids:
+            del self._items[iid]
+        if done_ids:
+            logger.debug("Removed %d completed items from store", len(done_ids))
+        return len(done_ids)
+
     def get_by_file(self, source_file: str) -> list[TodoItem]:
         """Return all items originating from *source_file*.
 
